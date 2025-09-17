@@ -1,0 +1,23 @@
+# Questions for llm English
+
+Who was Napoleon Bonaparte?
+Was Napoleon Bonaparte a hero or a villan?
+
+How did Napoleon Bonaparte become the Emperor of France?
+Was Napoleon's claim to Emperor favoured in Europe?
+
+How did Napoleon’s rule impact England and the Netherlands?
+Was the impact of Napoleon’s rule on England and the Netherlands destructive?
+
+# Question for llm Dutch
+
+Wie was Napoleon Bonaparte?
+Was Napoleon Bonaparte een held of een schurk?
+
+Hoe werd Napoleon Bonaparte keizer van Frankrijk?
+Werd Napoleon's aanspraak op keizerschap in Europa gesteund?
+
+Welke invloed had Napoleon's heerschappij op Engeland en Nederland?
+Was de impact van Napoleons heerschappij op Engeland en Nederland destructief?
+
+# Question for llm French

@@ -1,0 +1,28 @@
+{
+  "citation": "",
+  "description": "",
+  "features": {
+    "Text": {
+      "dtype": "string",
+      "_type": "Value"
+    },
+    "Language": {
+      "dtype": "string",
+      "_type": "Value"
+    },
+    "Topic": {
+      "dtype": "string",
+      "_type": "Value"
+    },
+    "Para_number": {
+      "dtype": "int64",
+      "_type": "Value"
+    },
+    "Year": {
+      "dtype": "int64",
+      "_type": "Value"
+    }
+  },
+  "homepage": "",
+  "license": ""
+}
