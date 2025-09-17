@@ -10,7 +10,7 @@ def load_dataset(dataset_path, test=True):
     """
     dataset = load_from_disk(dataset_path=dataset_path)
     if test:
-        dataset = dataset.select(range(100))
+        dataset = dataset.filter(lambda example: "dbnl" in example['ID'])
     print(f"Loaded {len(dataset)} entries from {dataset_path}")
     return dataset
 

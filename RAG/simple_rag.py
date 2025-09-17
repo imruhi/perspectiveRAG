@@ -1,22 +1,19 @@
-# Simple RAG
 import os
 import pickle
-
 import torch
-from datasets import load_from_disk
 from sentence_transformers import SentenceTransformer
 from transformers import AutoTokenizer, AutoModelForCausalLM, BitsAndBytesConfig
-
 from utils import load_dataset, cosine_similarity
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 print(f"On device: {device}")
+
 nf4_config = BitsAndBytesConfig(
-    load_in_4bit=True,
-    bnb_4bit_quant_type="nf4",
-    bnb_4bit_use_double_quant=True,
-    bnb_4bit_compute_dtype=torch.bfloat16
-)
+                                    load_in_4bit=True,
+                                    bnb_4bit_quant_type="nf4",
+                                    bnb_4bit_use_double_quant=True,
+                                    bnb_4bit_compute_dtype=torch.bfloat16
+                               )
 
 
 # question -> embed question ->
@@ -36,15 +33,18 @@ class Document:
     """
     Documents (text chunks) for RAG
     """
+
     def __init__(self, idx, chunk):
         self.index = idx
         self.embedding = None
         self.content = chunk
-        self.init_score = 0.5
+        self.init_score = None
 
     def set_embedding(self, embedding):
         self.embedding = embedding
 
+    def set_init_score(self, score):
+        self.init_score = score
 
 class SimpleRAG:
     def __init__(self, language_model_name, test, dataset_path='RAG_DB.pkl'):
@@ -68,9 +68,13 @@ class SimpleRAG:
 
         # Indexing phase
         # vector_database = [Document 1, Document 2]
+        # TODO: better indexing method to save database?
         if os.path.exists(self.dataset_path):
             with open(self.dataset_path, 'rb') as p:
                 self.vector_database = pickle.load(p)
+                # TODO: test
+                self.vector_database = self.vector_database[:500]
+                print(len(self.vector_database))
         else:
             self.vector_database = []
             print("No vector dataset found creating one")
@@ -79,7 +83,7 @@ class SimpleRAG:
 
     def embed_question(self, query: Query):
         """
-        Todo: embed the question using the same model
+        Embed the question using the same model as the documents
         :param query: question to embed
         :return: set question embeddings
         """
@@ -92,7 +96,7 @@ class SimpleRAG:
         :param text_dataset: hf Dataset object with chunked texts
         """
 
-        for idx, chunk in zip(text_dataset['ID'], text_dataset['CleanedText']):
+        for idx, chunk in zip(list(text_dataset['ID']), list(text_dataset['CleanedText'])):
             self.add_chunk_to_database(Document(idx, chunk))
         if to_save:
             print(f"Added {len(text_dataset)} to vector database")
@@ -127,40 +131,45 @@ class SimpleRAG:
         for question, language in zip(questions, languages):
             self.questions.append(Query(question, language))
 
-    def retrieve_top_idx(self, query: Query, top_k=3):
+    def retrieve_top_idx(self, query, top_k=3):
         """
         Return the k idx of most similar chunks from vector DB
         :param query: question asked
         :param top_k: # of most similar chunk's idx to be returned
         :return: list of idxs of length k and their similarities
         """
-        sim_idx = []
-        self.embed_question(query)
+        docs = []
 
         for doc in self.vector_database:
             similarity = cosine_similarity(query.embedding, doc.embedding)
-            sim_idx.append((doc.index, similarity))
-        sim_idx.sort(key=lambda x: x[1], reverse=True)
-        return sim_idx[:top_k]
+            doc.set_init_score(score=similarity)
+            docs.append(doc)
+        docs = sorted(docs, key=lambda d: d.init_score, reverse=True)
+        return docs[:top_k]
+
+    def rerank_top_idx(self, query: Query, documents: list[Document], top_k=3,):
+        # TODO:
+        pass
 
     def generate_response(self, top_k=3, max_new_tokens=200):
         decoded_outputs = []
 
         for query in self.questions:
+            self.embed_question(query)
             print(f"Retrieving {top_k} most similar chunks")
             # vector search
             retrieved_knowledge = self.retrieve_top_idx(query, top_k)
-            chunks, _ = self.get_chunks_from_database([idx for idx, sim in retrieved_knowledge])
 
             # TODO: reranking
+            reranked_retrieved_knowledge = self.rerank_top_idx(top_k, query)
 
-            for idx, similarity in retrieved_knowledge:
-                print(f"    idx: {idx}, similarity: {similarity:.2f}")
+            for doc in retrieved_knowledge:
+                print(f"    idx: {doc.index}, similarity: {doc.init_score:.2f}")
 
-            # TODO: currently only dutch
+            # TODO: make prompt based on language currently only dutch
             prompt = f'''Je bent een behulpzame chatbot. 
             Gebruik de volgende contextfragmenten om de vraag te beantwoorden. Verzin geen nieuwe informatie:
-            {chr(10).join([f' - {chunk}' for chunk in chunks])}
+            {chr(10).join([f' - {doc.content}' for doc in retrieved_knowledge])}
             '''
 
             messages = [
@@ -177,8 +186,7 @@ class SimpleRAG:
             ).to(self.model.device)
 
             print("Generating answers")
-            output = self.model.generate(**inputs, max_new_tokens=max_new_tokens,
-                                         pad_token_id=self.tokenizer.eos_token_id)
+            output = self.model.generate(**inputs, max_new_tokens=max_new_tokens)
             decoded_output = self.tokenizer.decode(output[0][inputs["input_ids"].shape[-1]:])
             decoded_outputs.append(decoded_output)
 
