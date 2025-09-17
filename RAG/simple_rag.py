@@ -32,6 +32,20 @@ class Query:
         self.embedding = None
 
 
+class Document:
+    """
+    Documents (text chunks) for RAG
+    """
+    def __init__(self, idx, chunk):
+        self.index = idx
+        self.embedding = None
+        self.content = chunk
+        self.init_score = 0.5
+
+    def set_embedding(self, embedding):
+        self.embedding = embedding
+
+
 class SimpleRAG:
     def __init__(self, language_model_name, test, dataset_path='RAG_DB.pkl'):
         """
@@ -53,7 +67,7 @@ class SimpleRAG:
         self.questions = []
 
         # Indexing phase
-        # vector_database = [(idx, chunk, embed), ...]
+        # vector_database = [Document 1, Document 2]
         if os.path.exists(self.dataset_path):
             with open(self.dataset_path, 'rb') as p:
                 self.vector_database = pickle.load(p)
@@ -71,34 +85,25 @@ class SimpleRAG:
         """
         query.embedding = self.embedding_model.encode_query(query.question, convert_to_tensor=True)
 
-    def chunk_texts(self, dataset):
-        """
-        Todo: chunk a given dataset into paragraphs?
-        :param dataset: Dataset to chunk from (column "CleanedText")
-        :return: A chunked dataset with all columns
-        """
-        text_dataset = dataset
-
-        return text_dataset
-
     def create_vector_database(self, text_dataset, to_save=True):
         """
         Implementing a vector database
         :param to_save: save dataset or not
         :param text_dataset: hf Dataset object with chunked texts
         """
-        chunked_database = self.chunk_texts(text_dataset)
 
-        for idx, chunk in zip(chunked_database['ID'], chunked_database['CleanedText']):
-            self.add_chunk_to_database(chunk, idx)
+        for idx, chunk in zip(text_dataset['ID'], text_dataset['CleanedText']):
+            self.add_chunk_to_database(Document(idx, chunk))
         if to_save:
-            print(f"Added {len(chunked_database)} to vector database")
+            print(f"Added {len(text_dataset)} to vector database")
             with open(self.dataset_path, 'wb') as p:
                 pickle.dump(self.vector_database, p)
 
-    def add_chunk_to_database(self, chunk, idx, to_save=False):
-        embedding = self.embedding_model.encode_document(chunk, convert_to_tensor=True)
-        self.vector_database.append((idx, chunk, embedding))
+    def add_chunk_to_database(self, doc: Document, to_save=False):
+        embedding = self.embedding_model.encode_document(doc.content, convert_to_tensor=True)
+        doc.set_embedding(embedding)
+        self.vector_database.append(doc)
+
         if to_save:
             with open(self.dataset_path, 'wb') as p:
                 pickle.dump(self.vector_database, p)
@@ -106,10 +111,10 @@ class SimpleRAG:
     def get_chunks_from_database(self, idxs):
         chunks = []
         embeddings = []
-        for i, chunk, embedding in self.vector_database:
-            if i in idxs:
-                chunks.append(chunk)
-                embeddings.append(embedding)
+        for doc in self.vector_database:
+            if doc.index in idxs:
+                chunks.append(doc.content)
+                embeddings.append(doc.embedding)
         return chunks, embeddings
 
     def set_questions(self, questions: list, languages: list):
@@ -132,9 +137,9 @@ class SimpleRAG:
         sim_idx = []
         self.embed_question(query)
 
-        for idx, chunk, embedding in self.vector_database:
-            similarity = cosine_similarity(query.embedding, embedding)
-            sim_idx.append((idx, similarity))
+        for doc in self.vector_database:
+            similarity = cosine_similarity(query.embedding, doc.embedding)
+            sim_idx.append((doc.index, similarity))
         sim_idx.sort(key=lambda x: x[1], reverse=True)
         return sim_idx[:top_k]
 
@@ -143,9 +148,11 @@ class SimpleRAG:
 
         for query in self.questions:
             print(f"Retrieving {top_k} most similar chunks")
+            # vector search
             retrieved_knowledge = self.retrieve_top_idx(query, top_k)
+            chunks, _ = self.get_chunks_from_database([idx for idx, sim in retrieved_knowledge])
 
-            chunks, embeddings = self.get_chunks_from_database([i for i, sim in retrieved_knowledge])
+            # TODO: reranking
 
             for idx, similarity in retrieved_knowledge:
                 print(f"    idx: {idx}, similarity: {similarity:.2f}")
