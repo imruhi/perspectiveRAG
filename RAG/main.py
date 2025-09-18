@@ -8,8 +8,6 @@ from langchain_community.vectorstores.utils import DistanceStrategy
 from os import path
 from datasets import Dataset
 
-pd.set_option("display.max_colwidth", None)
-
 # TODO: set param py file
 vec_save = "data/faiss_index_test.pkl"
 
@@ -28,22 +26,24 @@ rerank_k = 3
 
 # results save name
 # temp_max-new-tokens_embedding-model_cross-encoder_langmodel
-results_path = (f"t{temperature}_new{max_new_tokens}_{embedding_model_name.split('/')[-1]}_"
+results_path = (f"results/t{temperature}_new{max_new_tokens}_{embedding_model_name.split('/')[-1]}_"
                 f"{cross_encoder_name.split('/')[-1]}_{model_name.split('/')[-1]}")
 
-# query params (TODO: hardcoded but change to editable txt file?)
+# query params
+# TODO: hardcoded but change to editable txt file?
 questions = [
     "Wie was Napoleon Bonaparte?",
-    # "Was Napoleon Bonaparte een held?",
-    # "Was Napoleon Bonaparte een tiran?",
-    # "Was Napoleon Bonaparte een schurk?",
-    # "Hoe werd Napoleon Bonaparte keizer van Frankrijk?",
-    # "Werd Napoleon's aanspraak op keizerschap in Europa gesteund?",
-    # "Welke invloed had Napoleon's heerschappij op Engeland en Nederland?",
-    # "Was de impact van Napoleons heerschappij op Engeland en Nederland destructief?",
+    "Was Napoleon Bonaparte een held?",
+    "Was Napoleon Bonaparte een tiran?",
+    "Was Napoleon Bonaparte een schurk?",
+    "Hoe werd Napoleon Bonaparte keizer van Frankrijk?",
+    "Werd Napoleon's aanspraak op keizerschap in Europa gesteund?",
+    "Welke invloed had Napoleon's heerschappij op Engeland en Nederland?",
+    "Was de impact van Napoleons heerschappij op Engeland en Nederland destructief?",
 ]
 
 languages = ['nl'] * len(questions)
+
 
 def main():
     aRag = AdvancedRAG(embedding_model_name=embedding_model_name, max_new_tokens=max_new_tokens,
@@ -82,7 +82,9 @@ def main():
 
     # TODO: experiment with multiple answers?
     ds = Dataset.from_pandas(pd.DataFrame({"question": questions, "answer": answers,
-                                           "reranked_doc_ids": reranked_doc_ids, 'retrieved_doc_ids': retrieved_doc_ids}))
+                                           "reranked_doc_ids": reranked_doc_ids,
+                                           'retrieved_doc_ids': retrieved_doc_ids,
+                                           "language": languages}))
     ds.save_to_disk(results_path)
 
 

@@ -10,8 +10,14 @@ import pandas as pd
 from sklearn.neighbors import KNeighborsClassifier
 import pickle
 import os
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 YEARS = [1805, 1806, 1807, 1808, 1809, 1810, 1811, 1812, 1813, 1814, 1815, 1816, 1817, 1818, 1819]
+
+# chunk texts
+text_splitter = RecursiveCharacterTextSplitter.from_tiktoken_encoder(
+    model_name="gpt-2", chunk_size=300, chunk_overlap=100
+)
 
 
 def preprocess(dataset, path):
@@ -37,6 +43,30 @@ def preprocess(dataset, path):
     return dataset
 
 
+def chunk_examples(examples):
+    new_texts = []
+    new_metadata = {k: [] for k in examples.keys() if k != "Text"}
+
+    for i in range(len(examples["Text"])):
+        text = examples["Text"][i]
+        # collect the metadata for this row
+        metadata = {k: examples[k][i] for k in examples.keys() if k != "Text"}
+
+        # Split text
+        chunks = text_splitter.split_text(text)
+
+        # Add one copy of metadata for each chunk
+        for chunk in chunks:
+            new_texts.append(chunk)
+            for k, v in metadata.items():
+                new_metadata[k].append(v)
+
+    return {
+        "Text": new_texts,
+        **new_metadata
+    }
+
+
 def preprocess_american(dataset):
     datasets_ = []
 
@@ -46,7 +76,13 @@ def preprocess_american(dataset):
 
     dataset = concatenate_datasets(datasets_)
     dataset = dataset.rename_columns({"article": "Text"})
-    return dataset
+
+    chunked_dataset = dataset.map(
+        chunk_examples,
+        batched=True,
+    )
+
+    return chunked_dataset
 
 
 DATASET = pd.read_csv("C:/Users/imruh/Documents/perspectiveRAG/data/remove_headings/train_test_remove_heading.csv",
@@ -95,6 +131,7 @@ class Delpher:
         else:
             dataset = Dataset.load_from_disk(self.path)
             self.dataset = preprocess(dataset, self.path)
+        self.path = self.path + "-cleaned"
 
 
 class DBNL:
@@ -109,6 +146,7 @@ class DBNL:
         else:
             dataset = Dataset.load_from_disk(self.path)
             self.dataset = preprocess(dataset, self.path)
+        self.path = self.path + "-cleaned"
 
 
 class AmericanStories:
@@ -128,6 +166,7 @@ class AmericanStories:
             dataset = load_dataset(path, "subset_years", year_list=[str(x) for x in year_list], trust_remote_code=True)
             dataset = preprocess_american(dataset)
             self.dataset = preprocess(dataset, self.path)
+        self.path = self.path + "-cleaned"
 
 
 class Wikipedia:
@@ -144,6 +183,7 @@ class Wikipedia:
         else:
             dataset = Dataset.load_from_disk(self.path)
             self.dataset = preprocess(dataset, self.path)
+        self.path = self.path + "-cleaned"
 
 
 # TODO: remove legislations which are not in range of correct years
@@ -163,3 +203,34 @@ class Plakaatboeken:
             ds = Dataset.from_pandas(DataFrame({"Year": [int(a) for a in df['year']], "Date": df['date'],
                                                 "Text": df['legislation'], "Book": df['book']}))
             self.dataset = preprocess(ds, self.path)
+
+        self.path = self.path + "-cleaned"
+
+
+class BLBooks:
+    """
+    An instance of the public domain british library books
+    """
+
+    def __init__(self):
+        self.path = "C:/Users/imruh/Documents/perspectiveRAG/data/datasets_all/blbooks-subset"
+
+        if not os.path.exists(self.path):
+            ds = load_dataset("TheBritishLibrary/blbooks", trust_remote_code=True, split='train')
+            filtered_ds = ds.filter(
+                lambda example: example['date'].year in YEARS and len(example['text']) > 100 and example[
+                    'Language_1'] == 'English')
+            filtered_ds.save_to_disk(self.path)
+
+        if os.path.exists(self.path + "-cleaned"):
+            self.dataset = Dataset.load_from_disk(self.path + "-cleaned")
+            self.dataset = self.dataset.rename_columns({"text": "Text"})
+        else:
+            dataset = Dataset.load_from_disk(self.path)
+            dataset = dataset.rename_columns({"text": "Text"})
+            self.dataset = preprocess(dataset, self.path)
+            self.dataset = self.dataset.map(
+                chunk_examples,
+                batched=True,
+            )
+        self.path = self.path + "-cleaned"

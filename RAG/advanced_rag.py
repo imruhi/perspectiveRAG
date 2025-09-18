@@ -1,5 +1,8 @@
-import pickle
+import warnings
 
+warnings.filterwarnings("ignore", category=UserWarning)
+
+import pickle
 from utils import load_dataset
 from langchain_core.documents import Document as LangchainDocument
 from langchain_huggingface import HuggingFaceEmbeddings
@@ -121,7 +124,7 @@ class AdvancedRAG:
                                   metadata={"id": doc["ID"], "source": doc["Source"]})
                 for idx, doc in ds.to_pandas().iterrows()
             ])
-            with open(self.dataset_path+'_KB.pkl', 'wb') as f:
+            with open(self.dataset_path + '_KB.pkl', 'wb') as f:
                 pickle.dump(self.knowledge_base, f)
 
     def set_vector_store(self, vec_store):
@@ -173,3 +176,4 @@ class AdvancedRAG:
 
             print("     => Generating answer...")
             query.set_answer(self.reader_llm(self.generate_prompt(retrieved_docs_text, query))[0]["generated_text"])
+            print()
