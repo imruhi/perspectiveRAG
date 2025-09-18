@@ -45,12 +45,26 @@ class Query:
     def set_reranked_docs(self, ranked_docs):
         self.reranked_docs = ranked_docs
 
+    def get_reranked_doc_ids(self):
+        retrieved_ids = self.get_retrieved_doc_ids()
+        ids = []
+        for doc in self.reranked_docs:
+            ids.append(retrieved_ids[doc["result_index"]])
+        return ids
+
+    def get_retrieved_doc_ids(self):
+        ids = []
+        for doc in self.retrieved_docs:
+            ids.append(doc.metadata['id'])
+        return ids
+
 
 class AdvancedRAG:
-    def __init__(self, embedding_model_name, reader_model_name, cross_encoder_name,
+    def __init__(self, embedding_model_name, reader_model_name, cross_encoder_name, topics: list[int],
                  dataset_path='RAG_DB', temperature=0.2, max_new_tokens=300):
         # Init params
         self.dataset_path = dataset_path
+        self.topics = topics
         self.embedding_model_name = embedding_model_name
         self.reader_model_name = reader_model_name
         self.temperature = temperature
@@ -93,13 +107,13 @@ class AdvancedRAG:
         self.reranker = RAGPretrainedModel.from_pretrained(self.cross_encoder_name)
 
     def init_knowledge_base(self):
-        if path.exists(self.dataset_path + '_KB'):
+        if path.exists(self.dataset_path + '_KB.pkl'):
             print("Loading KB")
-            with open(self.dataset_path + '_KB', 'rb') as f:
+            with open(self.dataset_path + '_KB.pkl', 'rb') as f:
                 self.set_knowledge_base(pickle.load(f))
         else:
             # Load dataset
-            ds = load_dataset(self.dataset_path)
+            ds = load_dataset(self.dataset_path, self.topics)
             # make KB, is a list of LangChain Docs (dataset is already chunked)
             print("Making KB")
             self.set_knowledge_base([
@@ -107,7 +121,7 @@ class AdvancedRAG:
                                   metadata={"id": doc["ID"], "source": doc["Source"]})
                 for idx, doc in ds.to_pandas().iterrows()
             ])
-            with open(self.dataset_path+'_KB', 'wb') as f:
+            with open(self.dataset_path+'_KB.pkl', 'wb') as f:
                 pickle.dump(self.knowledge_base, f)
 
     def set_vector_store(self, vec_store):
@@ -146,7 +160,7 @@ class AdvancedRAG:
         prompt_chat = Prompt(language=query.language, question=query.question, context=context).chat_prompt
         return self.tokenizer.apply_chat_template(prompt_chat, tokenize=False, add_generation_prompt=True)
 
-    def prompt_model(self, brerank: bool = False, top_k=3):
+    def prompt_model(self, brerank: bool = False, top_k=3, rerank_k=3):
         for query in self.questions:
             print("     => Retrieving documents...")
             self.retrieve(top_k, query)
@@ -154,7 +168,7 @@ class AdvancedRAG:
 
             if brerank:
                 print("     => Reranking documents...")
-                retrieved_docs_text = self.rerank(query, retrieved_docs_text, top_k)
+                retrieved_docs_text = self.rerank(query, retrieved_docs_text, rerank_k)
             retrieved_docs_text = retrieved_docs_text[:top_k]
 
             print("     => Generating answer...")
