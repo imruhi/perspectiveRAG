@@ -224,7 +224,6 @@ class BLBooks:
 
         if os.path.exists(self.path + "-cleaned"):
             self.dataset = Dataset.load_from_disk(self.path + "-cleaned")
-            self.dataset = self.dataset.rename_columns({"text": "Text"})
         else:
             dataset = Dataset.load_from_disk(self.path)
             dataset = dataset.rename_columns({"text": "Text"})
