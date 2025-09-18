@@ -5,12 +5,13 @@ import pandas as pd
 from multiprocessing import freeze_support
 from langchain_community.vectorstores import FAISS
 from langchain_community.vectorstores.utils import DistanceStrategy
+from os import path
 
 pd.set_option("display.max_colwidth", None)
 
-vec_save = "faiss_index.pkl"
+vec_save = "faiss_index_test.pkl"
 
-# rag params
+# rag params (experiment params)
 model_name = "Qwen/Qwen2-7B-Instruct"
 cross_encoder_name = "colbert-ir/colbertv2.0"  # "cross-encoder/ms-marco-MiniLM-L6-v2"
 embedding_model_name = "all-MiniLM-L6-v2"
@@ -22,17 +23,24 @@ dataset_path = "data/RAG_DB"
 rerank = True
 top_k = 5
 
-# query params
+# results save name
+# temp_max-new-tokens_embedding-model_cross-encoder_langmodel
+results_path = (f"t{temperature}_new{max_new_tokens}_{embedding_model_name.split('/')[-1]}_"
+           f"{cross_encoder_name.split('/')[-1]}_{model_name.split('/')[-1]}.csv")
+
+# query params (TODO: hardcoded but change to editable txt?)
 questions = [
     "Wie was Napoleon Bonaparte?",
     "Was Napoleon Bonaparte een held?",
-    "Was Napoleon Bonaparte een tiran?",
+    # "Was Napoleon Bonaparte een tiran?",
+    # "Was Napoleon Bonaparte een schurk?",
+    # "Hoe werd Napoleon Bonaparte keizer van Frankrijk?",
+    # "Werd Napoleon's aanspraak op keizerschap in Europa gesteund?",
+    # "Welke invloed had Napoleon's heerschappij op Engeland en Nederland?",
+    # "Was de impact van Napoleons heerschappij op Engeland en Nederland destructief?",
 ]
-languages = [
-    "nl",
-    "nl",
-    "nl",
-]
+
+languages = ['nl'] * len(questions)
 
 
 # sRAG = SimpleRAG(language_model_name=model_name, test=True, dataset_path=dataset_path)
@@ -44,24 +52,35 @@ def main():
                        dataset_path=dataset_path, temperature=temperature)
 
     # vector database init based on cosine
-    print("Making VD")
-    # in main due to synchronity issues
-    aRag.vector_base = FAISS.from_documents(
-        aRag.knowledge_base, aRag.embedding_model, distance_strategy=DistanceStrategy.COSINE
-    )
 
-    # TODO: better save and load?
-    with open(vec_save, 'wb') as f:
-        pickle.dump(aRag.vector_base, f)
+    if path.exists(vec_save):
+        print("Loading VD")
+        with open(vec_save, 'rb') as f:
+            aRag.set_vector_store(pickle.load(f))
+    else:
+        # in main due to synchronity issues
+        print("Making VD")
+        aRag.vector_base = FAISS.from_documents(
+            aRag.knowledge_base, aRag.embedding_model, distance_strategy=DistanceStrategy.COSINE
+        )
+        with open(vec_save, 'wb') as f:
+            pickle.dump(aRag.vector_base, f)
 
     aRag.set_questions(questions, languages)
     aRag.prompt_model(brerank=rerank, top_k=top_k)
 
+    answers = []
+
     for query in aRag.questions:
         print(f"Query: {query.question}")
         print(f"Answer: {query.answer}")
+        answers.append(query.answer.replace('\n', ' '))
+        print()
+
+    # TODO: experiment with multiple answers?
+    pd.DataFrame({"question": questions, "answer": answers}).to_csv(results_path, index=False)
 
 
 if __name__ == "__main__":
-    freeze_support()
+    freeze_support()  # for synchronity issues in using FAISS to make vec store
     main()

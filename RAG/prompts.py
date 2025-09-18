@@ -10,9 +10,9 @@ class Prompt:
             self.set_nl_chat(self.context, self.question)
 
     def set_nl_chat(self, context: str, question: str):
-        system_prompt = f'''Geef een uitgebreid antwoord op de vraag, gebruikmakend van de informatie in de context. 
-        Reageer alleen op de gestelde vraag; uw antwoord moet beknopt en relevant zijn voor de vraag. 
-        Vermeld indien relevant het nummer van het brondocument.'''
+        system_prompt = f'''Geef een uitgebreid antwoord op de vraag, waarbij je je kennis en de informatie in de juiste context plaatst.
+Reageer alleen op de gestelde vraag; je antwoord moet beknopt en relevant zijn voor de vraag.
+Vermeld indien relevant het nummer van het brondocument.'''
 
         user_prompt = f'''
         Context:

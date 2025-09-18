@@ -1,3 +1,5 @@
+import pickle
+
 from utils import load_dataset
 from langchain_core.documents import Document as LangchainDocument
 from langchain_huggingface import HuggingFaceEmbeddings
@@ -6,6 +8,7 @@ from transformers import AutoTokenizer, AutoModelForCausalLM, BitsAndBytesConfig
 from prompts import Prompt
 from ragatouille import RAGPretrainedModel
 import warnings
+from os import path
 
 BNB_CONFIG = BitsAndBytesConfig(
     load_in_4bit=True,
@@ -15,6 +18,7 @@ BNB_CONFIG = BitsAndBytesConfig(
 )
 
 warnings.filterwarnings("ignore")
+
 
 class Query:
     """
@@ -53,17 +57,6 @@ class AdvancedRAG:
         self.max_new_tokens = max_new_tokens
         self.cross_encoder_name = cross_encoder_name
 
-        # Load dataset
-        ds = load_dataset(self.dataset_path)
-
-        # make KB, is a list of LangChain Docs (dataset is already chunked)
-        print("Making KB")
-        self.knowledge_base = [
-            LangchainDocument(page_content=doc["CleanedText"],
-                              metadata={"id": doc["ID"], "source": doc["Source"]})
-            for idx, doc in ds.to_pandas().iterrows()
-        ]
-
         self.embedding_model = HuggingFaceEmbeddings(
             model_name=self.embedding_model_name,
             multi_process=True,
@@ -72,8 +65,12 @@ class AdvancedRAG:
         )
 
         self.vector_base = None
+        self.knowledge_base = None
         # questions is a list of Query
         self.questions = []
+
+        # set/load KB
+        self.init_knowledge_base()
 
         # set reader model + tokenizer
         print("Setting reader model")
@@ -95,8 +92,30 @@ class AdvancedRAG:
         print("Setting reranker")
         self.reranker = RAGPretrainedModel.from_pretrained(self.cross_encoder_name)
 
+    def init_knowledge_base(self):
+        if path.exists(self.dataset_path + '_KB'):
+            print("Loading KB")
+            with open(self.dataset_path + '_KB', 'rb') as f:
+                self.set_knowledge_base(pickle.load(f))
+        else:
+            # Load dataset
+            ds = load_dataset(self.dataset_path)
+            # make KB, is a list of LangChain Docs (dataset is already chunked)
+            print("Making KB")
+            self.set_knowledge_base([
+                LangchainDocument(page_content=doc["CleanedText"],
+                                  metadata={"id": doc["ID"], "source": doc["Source"]})
+                for idx, doc in ds.to_pandas().iterrows()
+            ])
+            with open(self.dataset_path+'_KB', 'wb') as f:
+                pickle.dump(self.knowledge_base, f)
+
     def set_vector_store(self, vec_store):
         self.vector_base = vec_store
+
+    def set_knowledge_base(self, kb):
+        self.knowledge_base = kb
+
     def set_questions(self, queries: list, languages: list):
         """
         Given a list of questions and languages, set a list of Question objects and embed them
@@ -129,14 +148,14 @@ class AdvancedRAG:
 
     def prompt_model(self, brerank: bool = False, top_k=3):
         for query in self.questions:
-            print("=> Retrieving documents...")
+            print("     => Retrieving documents...")
             self.retrieve(top_k, query)
             retrieved_docs_text = [doc.page_content for doc in query.retrieved_docs]
 
             if brerank:
-                print("=> Reranking documents...")
+                print("     => Reranking documents...")
                 retrieved_docs_text = self.rerank(query, retrieved_docs_text, top_k)
             retrieved_docs_text = retrieved_docs_text[:top_k]
 
-            print("=> Generating answer...")
+            print("     => Generating answer...")
             query.set_answer(self.reader_llm(self.generate_prompt(retrieved_docs_text, query))[0]["generated_text"])
