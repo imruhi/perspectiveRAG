@@ -1,7 +1,7 @@
 {
   "language": "NL",
   "vec_save": "data/VECTOR_STORAGE",
-  "model_names": ["Qwen/Qwen2-7B-Instruct"],
+  "model_names": ["Qwen/Qwen3-32B", "allenai/OLMo-7B-Instruct-hf"],
   "cross_encoder_name": "colbert-ir/colbertv2.0",
   "embedding_model_name": "all-MiniLM-L6-v2",
   "max_new_tokens": 300,
