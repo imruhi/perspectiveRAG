@@ -44,6 +44,19 @@ Respond only to the given question; your answer should be concise and relevant t
             {'role': 'user', 'content': user_prompt},
         ]
 
-    def set_fr_chat(self, context: str, question:str):
-        """ TODO: same as above but in french """
-        pass
+    def set_fr_chat(self, context: str, question: str):
+        system_prompt = f'''Répondez de manière exhaustive à la question posée, en utilisant vos connaissances et les informations disponibles dans le contexte donné.
+Répondez uniquement à la question posée; votre réponse doit être concise et pertinente. Répondez en français.'''
+
+        user_prompt = f'''
+            Contexte:
+            {context}
+            ---
+            C'est la question à laquelle vous devez répondre.
+
+            Question: {question}
+            '''
+        self.chat_prompt = [
+            {'role': 'system', 'content': system_prompt},
+            {'role': 'user', 'content': user_prompt},
+        ]
