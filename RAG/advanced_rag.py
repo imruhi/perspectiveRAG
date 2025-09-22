@@ -64,7 +64,7 @@ class Query:
 
 class AdvancedRAG:
     def __init__(self, embedding_model_name, reader_model_name, cross_encoder_name, topics: list[int],
-                 dataset_path='RAG_DB', temperature=0.2, max_new_tokens=300):
+                 dataset_path='RAG_DB', temperature=0.2, max_new_tokens=300, language='NL'):
         # Init params
         self.dataset_path = dataset_path
         self.topics = topics
@@ -73,6 +73,7 @@ class AdvancedRAG:
         self.temperature = temperature
         self.max_new_tokens = max_new_tokens
         self.cross_encoder_name = cross_encoder_name
+        self.language = language
 
         self.embedding_model = HuggingFaceEmbeddings(
             model_name=self.embedding_model_name,
@@ -110,13 +111,14 @@ class AdvancedRAG:
         self.reranker = RAGPretrainedModel.from_pretrained(self.cross_encoder_name)
 
     def init_knowledge_base(self):
-        if path.exists(self.dataset_path + '_KB.pkl'):
+        new_path = self.dataset_path + '_' + self.language + '_KB.pkl'
+        if path.exists(new_path):
             print("Loading KB")
-            with open(self.dataset_path + '_KB.pkl', 'rb') as f:
+            with open(new_path, 'rb') as f:
                 self.set_knowledge_base(pickle.load(f))
         else:
             # Load dataset
-            ds = load_dataset(self.dataset_path, self.topics)
+            ds = load_dataset(self.dataset_path, self.topics, self.language)
             # make KB, is a list of LangChain Docs (dataset is already chunked)
             print("Making KB")
             self.set_knowledge_base([
@@ -124,7 +126,7 @@ class AdvancedRAG:
                                   metadata={"id": doc["ID"], "source": doc["Source"]})
                 for idx, doc in ds.to_pandas().iterrows()
             ])
-            with open(self.dataset_path + '_KB.pkl', 'wb') as f:
+            with open(new_path, 'wb') as f:
                 pickle.dump(self.knowledge_base, f)
 
     def set_vector_store(self, vec_store):

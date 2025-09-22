@@ -1,18 +1,21 @@
 from datasets import load_from_disk
 
 
-def load_dataset(dataset_path, topics=None):
+def load_dataset(dataset_path, topics=None, language='NL'):
     """
-    Load a dataset at given path
+    Load a dataset at given path, filter for topic and language?
+    :param language: language subset of dataset
     :param dataset_path: path where raw unchunked dataset is
     :param topics: list of topics (int_numbers) to subset from
     :return: loaded dataset
     """
     dataset = load_from_disk(dataset_path=dataset_path)
+    print(f"    Filtering out language")
+    dataset = dataset.filter(lambda example: example['SourceLang'] == language)
     if topics is not None:
-        print(f"Filtering out topics")
+        print(f"    Filtering out topics")
         dataset = dataset.filter(lambda example: example['Topic'] in topics)
-    print(f"Loaded {len(dataset)} entries from {dataset_path}")
+    print(f"    Loaded {len(dataset)} entries from {dataset_path}")
     return dataset
 
 

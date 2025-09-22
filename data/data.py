@@ -212,17 +212,22 @@ class BLBooks:
     An instance of the public domain british library books
     """
 
-    def __init__(self):
-        self.path = "C:/Users/imruh/Documents/perspectiveRAG/data/datasets_all/blbooks-subset"
+    def __init__(self, language):
+        """
+
+        :param language: needs to be either English or French or Dutch?
+        """
+        self.path = f"C:/Users/imruh/Documents/perspectiveRAG/data/datasets_all/blbooks-subset-{language}"
 
         if not os.path.exists(self.path):
             ds = load_dataset("TheBritishLibrary/blbooks", trust_remote_code=True, split='train')
+            # filter for correct language, date and better ocr'd text
             filtered_ds = ds.filter(
                 lambda example: example['date'].year in YEARS and len(example['text']) > 100 and example[
-                    'Language_1'] == 'English')
+                    'Language_1'] == language and example["mean_wc_ocr"] > 0.7)
             filtered_ds.save_to_disk(self.path)
 
-        if os.path.exists(self.path + "-cleaned"):
+        if os.path.exists(self.path + f"-cleaned"):
             self.dataset = Dataset.load_from_disk(self.path + "-cleaned")
         else:
             dataset = Dataset.load_from_disk(self.path)
@@ -232,4 +237,20 @@ class BLBooks:
                 chunk_examples,
                 batched=True,
             )
+        self.path = self.path + "-cleaned"
+
+
+class BNFNewspaper:
+    """
+    An instance of the public domain newpapers from the BnF, part of europeana
+    Texts are pre-chunked using notebook
+    """
+    def __init__(self):
+        self.path = f"C:/Users/imruh/Documents/perspectiveRAG/data/datasets_all/bnfnewspapers-subset"
+
+        if os.path.exists(self.path + f"-cleaned"):
+            self.dataset = Dataset.load_from_disk(self.path + "-cleaned")
+        else:
+            dataset = Dataset.load_from_disk(self.path)
+            self.dataset = preprocess(dataset, self.path)
         self.path = self.path + "-cleaned"
