@@ -23,15 +23,14 @@ def load_questions(language):
             "Was the impact of Napoleon’s rule on England and the Netherlands destructive?",
         ]
 
-    else:
-        pass
-    return [
-        "Qui était Napoleon Bonaparte?",
-        "Napoléon était-il un héros?",
-        "Napoléon était-il un tyran?",
-        "Napoléon était-il un méchant?",
-        "Comment Napoléon Bonaparte est-il devenu empereur de France?",
-        "La prétention de Napoléon au titre d’empereur était-elle favorisée en Europe?",
-        "Quel impact le règne de Napoléon a-t-il eu sur l’Angleterre et les Pays-Bas?",
-        "L’impact du règne de Napoléon sur l’Angleterre et les Pays-Bas a-t-il été destructeur?",
-    ]
+    elif language == "FR":
+        return [
+            "Qui était Napoleon Bonaparte?",
+            "Napoléon était-il un héros?",
+            "Napoléon était-il un tyran?",
+            "Napoléon était-il un méchant?",
+            "Comment Napoléon Bonaparte est-il devenu empereur de France?",
+            "La prétention de Napoléon au titre d’empereur était-elle favorisée en Europe?",
+            "Quel impact le règne de Napoléon a-t-il eu sur l’Angleterre et les Pays-Bas?",
+            "L’impact du règne de Napoléon sur l’Angleterre et les Pays-Bas a-t-il été destructeur?",
+        ]

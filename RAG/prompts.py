@@ -5,10 +5,14 @@ class Prompt:
         self.question = question
         self.chat_prompt = []
 
-        if self.language == 'nl':
+        if self.language == 'NL':
             self.set_nl_chat(self.context, self.question)
-        if self.language == 'en':
+        elif self.language == 'EN':
             self.set_en_chat(self.context, self.question)
+        elif self.language == 'FR':
+            self.set_fr_chat(self.context, self.question)
+        else:
+            self.set_baseline_chat(self.context, self.question)
 
     def set_nl_chat(self, context: str, question: str):
         system_prompt = f'''Geef een uitgebreid antwoord op de vraag, waarbij je je kennis en de informatie in de juiste context plaatst.
@@ -60,3 +64,9 @@ Répondez uniquement à la question posée; votre réponse doit être concise et
             {'role': 'system', 'content': system_prompt},
             {'role': 'user', 'content': user_prompt},
         ]
+
+    def set_baseline_chat(self, context: str, question: str):
+        """
+        TODO: baseline for different languages 
+        """
+

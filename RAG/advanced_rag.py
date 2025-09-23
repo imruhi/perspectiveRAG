@@ -10,7 +10,6 @@ import torch
 from transformers import AutoTokenizer, AutoModelForCausalLM, BitsAndBytesConfig, pipeline
 from prompts import Prompt
 from ragatouille import RAGPretrainedModel
-import warnings
 from os import path
 
 BNB_CONFIG = BitsAndBytesConfig(
@@ -64,7 +63,7 @@ class Query:
 
 class AdvancedRAG:
     def __init__(self, embedding_model_name, reader_model_name, cross_encoder_name, topics: list[int],
-                 dataset_path='RAG_DB', temperature=0.2, max_new_tokens=300, language='NL'):
+                 dataset_path='RAG_DB', temperature=0.2, max_new_tokens=300):
         # Init params
         self.dataset_path = dataset_path
         self.topics = topics
@@ -73,7 +72,11 @@ class AdvancedRAG:
         self.temperature = temperature
         self.max_new_tokens = max_new_tokens
         self.cross_encoder_name = cross_encoder_name
-        self.language = language
+        self.language = None
+        self.vector_base = None
+        self.knowledge_base = None
+        # questions is a list of Query
+        self.questions = []
 
         self.embedding_model = HuggingFaceEmbeddings(
             model_name=self.embedding_model_name,
@@ -82,18 +85,11 @@ class AdvancedRAG:
             encode_kwargs={"normalize_embeddings": True},  # Set `True` for cosine similarity
         )
 
-        self.vector_base = None
-        self.knowledge_base = None
-        # questions is a list of Query
-        self.questions = []
-
-        # set/load KB
-        self.init_knowledge_base()
-
         # set reader model + tokenizer
-        print("Setting reader model")
-        self.reader_model = AutoModelForCausalLM.from_pretrained(self.reader_model_name, quantization_config=BNB_CONFIG)
+        print("Setting reader model", flush=True)
         self.tokenizer = AutoTokenizer.from_pretrained(self.reader_model_name)
+        self.reader_model = AutoModelForCausalLM.from_pretrained(self.reader_model_name, quantization_config=BNB_CONFIG,
+                                                                 dtype="auto", device_map="auto")
 
         self.reader_llm = pipeline(
             model=self.reader_model,
@@ -107,20 +103,24 @@ class AdvancedRAG:
         )
 
         # set cross_encoder/reranker
-        print("Setting reranker")
+        print("Setting reranker", flush=True)
         self.reranker = RAGPretrainedModel.from_pretrained(self.cross_encoder_name)
+
+    def prepare(self):
+        # set/load KB
+        self.init_knowledge_base()
 
     def init_knowledge_base(self):
         new_path = self.dataset_path + '_' + self.language + '_KB.pkl'
         if path.exists(new_path):
-            print("Loading KB")
+            print("Loading KB", flush=True)
             with open(new_path, 'rb') as f:
                 self.set_knowledge_base(pickle.load(f))
         else:
             # Load dataset
             ds = load_dataset(self.dataset_path, self.topics, self.language)
             # make KB, is a list of LangChain Docs (dataset is already chunked)
-            print("Making KB")
+            print("Making KB", flush=True)
             self.set_knowledge_base([
                 LangchainDocument(page_content=doc["CleanedText"],
                                   metadata={"id": doc["ID"], "source": doc["Source"]})
@@ -128,6 +128,9 @@ class AdvancedRAG:
             ])
             with open(new_path, 'wb') as f:
                 pickle.dump(self.knowledge_base, f)
+
+    def set_language(self, language):
+        self.language = language
 
     def set_vector_store(self, vec_store):
         self.vector_base = vec_store
@@ -154,28 +157,71 @@ class AdvancedRAG:
         query.set_retrieved_docs(self.vector_base.similarity_search(query=query.question, k=top_k))
 
     def rerank(self, query: Query, retrieved_docs_text, top_k):
-        retrieved_docs_text = self.reranker.rerank(query.question, retrieved_docs_text, k=top_k)
-        query.set_reranked_docs(retrieved_docs_text)
-        retrieved_docs_text = [doc["content"] for doc in retrieved_docs_text]
-        return retrieved_docs_text
+        retrieved_docs = self.reranker.rerank(query.question, retrieved_docs_text, k=top_k)
+        query.set_reranked_docs(retrieved_docs)
+        reranked_docs_text = [doc["content"] for doc in retrieved_docs]
+        return reranked_docs_text
 
     def generate_prompt(self, retrieved_docs_text, query: Query):
-        context = "\nExtracted documents:\n"
-        context += "".join([f"Document {str(i)}:::\n" + doc for i, doc in enumerate(retrieved_docs_text)])
+        context = ""
+        context += "".join([f"\nDocument {str(i)}:::" + doc for i, doc in enumerate(retrieved_docs_text)])
         prompt_chat = Prompt(language=query.language, question=query.question, context=context).chat_prompt
-        return self.tokenizer.apply_chat_template(prompt_chat, tokenize=False, add_generation_prompt=True)
+        return self.tokenizer.apply_chat_template(prompt_chat, tokenize=False, add_generation_prompt=True, enable_thinking=False)
 
     def prompt_model(self, brerank: bool = False, top_k=3, rerank_k=3):
         for query in self.questions:
-            print("     => Retrieving documents...")
+            print("     => Retrieving documents...", flush=True)
             self.retrieve(top_k, query)
             retrieved_docs_text = [doc.page_content for doc in query.retrieved_docs]
-
-            if brerank:
-                print("     => Reranking documents...")
-                retrieved_docs_text = self.rerank(query, retrieved_docs_text, rerank_k)
             retrieved_docs_text = retrieved_docs_text[:top_k]
+            
+            if brerank:
+                print("     => Reranking documents...", flush=True)
+                retrieved_docs_text = self.rerank(query, retrieved_docs_text, rerank_k)
+                retrieved_docs_text = retrieved_docs_text[:rerank_k]
+            
+            print("     => Generating answer...", flush=True)
+            prompt = self.generate_prompt(retrieved_docs_text, query)
+            query.set_answer(self.reader_llm(prompt)[0]["generated_text"])
+            print("\n", flush=True)
 
-            print("     => Generating answer...")
-            query.set_answer(self.reader_llm(self.generate_prompt(retrieved_docs_text, query))[0]["generated_text"])
-            print()
+
+    # def prompt_model(self, brerank: bool = False, top_k=3, rerank_k=3):
+    #     for query in self.questions:
+    #         print("     => Retrieving documents...", flush=True)
+    #         self.retrieve(top_k, query)
+    #         retrieved_docs_text = [doc.page_content for doc in query.retrieved_docs]
+    #         retrieved_docs_text = retrieved_docs_text[:top_k]
+            
+    #         if brerank:
+    #             print("     => Reranking documents...", flush=True)
+    #             retrieved_docs_text = self.rerank(query, retrieved_docs_text, rerank_k)
+    #             retrieved_docs_text = retrieved_docs_text[:rerank_k]
+            
+    #         print("     => Generating answer...", flush=True)
+    #         prompt = self.generate_prompt(retrieved_docs_text, query)
+    #         # print(prompt, flush=True)
+    #         model_inputs = self.tokenizer([prompt], return_tensors="pt").to("cuda")
+            
+    #         generated_ids = self.reader_model.generate(
+    #                                         **model_inputs,
+    #                                         do_sample=True,
+    #                                         temperature=self.temperature,  # Parameter to vary
+    #                                         repetition_penalty=1.1,
+    #                                         max_new_tokens=self.max_new_tokens,
+    #                                       )
+
+    #         output_ids = generated_ids[0][len(model_inputs.input_ids[0]):].tolist() 
+
+    #         thinking_content = ''
+    #         # parsing thinking content
+    #         try:
+    #             # rindex finding 151668 (</think>)
+    #             index = len(output_ids) - output_ids[::-1].index(151668)
+    #             thinking_content = self.tokenizer.decode(output_ids[:index], skip_special_tokens=True).strip("\n")
+    #         except ValueError:
+    #             index = 0
+
+    #         content = self.tokenizer.decode(output_ids[index:], skip_special_tokens=True).strip("\n")
+    #         query.set_answer(content)
+
