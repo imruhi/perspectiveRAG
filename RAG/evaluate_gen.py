@@ -35,6 +35,8 @@ def get_evaluate_measures(answers):
     models = list(answers["model"].unique())
     questions = list(answers["question_mapped"].unique())
 
+    lang_pairs = [["NL", "FR"], ["FR", "EN"], ["EN", "NL"]]
+
     for model_name in models:
 
         df1 = answers[answers["model"] == model_name].reset_index(drop=True)
@@ -45,34 +47,24 @@ def get_evaluate_measures(answers):
 
             for i in range(PARAMS["repeat"]):
 
-                dutch_ans = df2[df2["language"] == "NL"].reset_index(drop=True)[f"repeat_{i + 1}"].iloc[0]
-                french_ans = df2[df2["language"] == "FR"].reset_index(drop=True)[f"repeat_{i + 1}"].iloc[0]
-                english_ans = df2[df2["language"] == "EN"].reset_index(drop=True)[f"repeat_{i + 1}"].iloc[0]
-                dutch_ans_b = df2[df2["language"] == "NL"].reset_index(drop=True)[f"baseline_repeat_{i + 1}"].iloc[0]
-                french_ans_b = df2[df2["language"] == "FR"].reset_index(drop=True)[f"baseline_repeat_{i + 1}"].iloc[0]
-                english_ans_b = df2[df2["language"] == "EN"].reset_index(drop=True)[f"baseline_repeat_{i + 1}"].iloc[0]
+                for pair in lang_pairs:
 
-                nl_fr = cosine_sim(dutch_ans, french_ans)
-                fr_en = cosine_sim(french_ans, english_ans)
-                en_nl = cosine_sim(english_ans, dutch_ans)
-                nl_fr_b = cosine_sim(dutch_ans_b, french_ans_b)
-                fr_en_b = cosine_sim(french_ans_b, english_ans_b)
-                en_nl_b = cosine_sim(english_ans_b, dutch_ans_b)
+                    ans1 = df2[df2["language"] == pair[0]].reset_index(drop=True)[f"repeat_{i + 1}"].iloc[0]
+                    ans2 = df2[df2["language"] == pair[1]].reset_index(drop=True)[f"repeat_{i + 1}"].iloc[0]
+                    ans1b = df2[df2["language"] == pair[0]].reset_index(drop=True)[f"baseline_repeat_{i + 1}"].iloc[0]
+                    ans2b = df2[df2["language"] == pair[1]].reset_index(drop=True)[f"baseline_repeat_{i + 1}"].iloc[0]
 
-                nl_fr_r = rougeL_fmeasure(dutch_ans, french_ans)
-                fr_en_r = rougeL_fmeasure(french_ans, english_ans)
-                en_nl_r = rougeL_fmeasure(english_ans, dutch_ans)
-                nl_fr_rb = rougeL_fmeasure(dutch_ans_b, french_ans_b)
-                fr_en_rb = rougeL_fmeasure(french_ans_b, english_ans_b)
-                en_nl_rb = rougeL_fmeasure(english_ans_b, dutch_ans_b)
+                    cosine = cosine_sim(ans1, ans2)
+                    cosineb = cosine_sim(ans1b, ans2b)
 
-                all_measures.append([model_name, question, nl_fr, fr_en, en_nl, nl_fr_r, fr_en_r, en_nl_r, False])
-                all_measures.append(
-                    [model_name, question, nl_fr_b, fr_en_b, en_nl_b, nl_fr_rb, fr_en_rb, en_nl_rb, True])
+                    rouge = rougeL_fmeasure(ans1, ans2)
+                    rougeb = rougeL_fmeasure(ans1b, ans2b)
+
+                    all_measures.append([model_name, question, cosine, rouge, False, f"{pair[0]}-{pair[1]}"])
+                    all_measures.append([model_name, question, cosineb, rougeb, True, f"{pair[0]}-{pair[1]}"])
 
     all_measures_df = pd.DataFrame(all_measures,
-                                   columns=["Model", "Question", "NL_FR_C", "FR_EN_C", "EN_NL_C", "NL_FR_R", "FR_EN_R",
-                                            "EN_NL_R", "fBaseline"])
+                                   columns=["Model", "Question", "Cosine", "Rouge", "fBaseline", "Language1-Language2"])
     return all_measures_df
 
 
