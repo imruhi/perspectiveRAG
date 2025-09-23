@@ -10,7 +10,9 @@ from questions import load_questions
 import json
 import time
 import glob
-from evaluate_gen import get_evaluate_measures
+from evaluate_gen import get_evaluate_measures, get_compare_measures
+
+
 # TODO: probably a way to adjust params so it goes faster but can't be bothered
 def main():
     # load parameters
@@ -127,6 +129,8 @@ def evaluate():
     answers.drop(["answers", "baseline_answer"], axis=1, inplace=True)
     evaluate_measures = get_evaluate_measures(answers)
     evaluate_measures.to_csv("metrics.csv")
+    compare_measures = get_compare_measures(answers)
+    compare_measures.to_csv("baseline_compare_metrics.csv")
 
 
 if __name__ == "__main__":

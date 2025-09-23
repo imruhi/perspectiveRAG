@@ -74,3 +74,41 @@ def get_evaluate_measures(answers):
                                    columns=["Model", "Question", "NL_FR_C", "FR_EN_C", "EN_NL_C", "NL_FR_R", "FR_EN_R",
                                             "EN_NL_R", "fBaseline"])
     return all_measures_df
+
+
+def get_compare_measures(answers):
+    """
+    Compare language specific answers to baselines
+    :return: measures df
+    """
+
+    # There is probably a better way to do this but I'm tired
+
+    all_measures = []
+    models = list(answers["model"].unique())
+    questions = list(answers["question_mapped"].unique())
+
+    for model_name in models:
+
+        df1 = answers[answers["model"] == model_name].reset_index(drop=True)
+
+        for question in questions:
+
+            df2 = df1[df1["question_mapped"] == question].reset_index(drop=True)
+
+            for lang in PARAMS["languages"]:
+
+                for i in range(PARAMS["repeat"]):
+
+                    baseline = df2[df2["language"] == lang].reset_index(drop=True)[f"baseline_repeat_{i + 1}"].iloc[0]
+                    context = df2[df2["language"] == lang].reset_index(drop=True)[f"repeat_{i + 1}"].iloc[0]
+
+                    cosine = cosine_sim(baseline, context)
+                    rouge = rougeL_fmeasure(baseline, context)
+                    all_measures.append(
+                        [model_name, question, lang, cosine, rouge])
+
+    all_measures_df = pd.DataFrame(all_measures,
+                                   columns=["Model", "Question", "Language", "Cosine", "Rouge"])
+
+    return all_measures_df
