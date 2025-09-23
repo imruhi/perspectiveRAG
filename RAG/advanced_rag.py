@@ -32,20 +32,24 @@ class Query:
         self.language = language
         self.embedding = None
         self.retrieved_docs = None
-        self.answer = None
+        self.answers = None
         self.reranked_docs = None
+        self.baseline_answers = None
 
     def set_embedding(self, emb):
         self.embedding = emb
 
-    def set_answer(self, answer):
-        self.answer = answer
+    def set_answers(self, answers):
+        self.answers = answers
 
     def set_retrieved_docs(self, retrieved_docs):
         self.retrieved_docs = retrieved_docs
 
     def set_reranked_docs(self, ranked_docs):
         self.reranked_docs = ranked_docs
+
+    def set_baseline_answers(self, baselines):
+        self.baseline_answers = baselines
 
     def get_reranked_doc_ids(self):
         retrieved_ids = self.get_retrieved_doc_ids()
@@ -154,6 +158,7 @@ class AdvancedRAG:
         pass
 
     def retrieve(self, top_k, query: Query):
+        # TODO: retrieve documents based on source? need to add filter={"source": source} param
         query.set_retrieved_docs(self.vector_base.similarity_search(query=query.question, k=top_k))
 
     def rerank(self, query: Query, retrieved_docs_text, top_k):
@@ -168,60 +173,39 @@ class AdvancedRAG:
         prompt_chat = Prompt(language=query.language, question=query.question, context=context).chat_prompt
         return self.tokenizer.apply_chat_template(prompt_chat, tokenize=False, add_generation_prompt=True, enable_thinking=False)
 
-    def prompt_model(self, brerank: bool = False, top_k=3, rerank_k=3):
+    def prompt_model_baseline(self, repeat):
         for query in self.questions:
-            print("     => Retrieving documents...", flush=True)
+            # print("     => Baseline answer...", flush=True)
+            baseline=[]
+            for _ in range(repeat):
+                prompt = self.generate_prompt([], query)
+                baseline.append(self.reader_llm(prompt)[0]["generated_text"])
+            query.set_baseline_answers(baseline)
+
+    def prompt_model(self, brerank: bool = False, top_k=3, rerank_k=3, repeat=3):
+        """
+        :param repeat: ONLY REPEAT GENERATION NOT RETRIEVAL AND RERANKING
+        """
+        for query in self.questions:
+            # print("     => Retrieving documents...", flush=True)
             self.retrieve(top_k, query)
             retrieved_docs_text = [doc.page_content for doc in query.retrieved_docs]
             retrieved_docs_text = retrieved_docs_text[:top_k]
             
             if brerank:
-                print("     => Reranking documents...", flush=True)
+                # print("     => Reranking documents...", flush=True)
                 retrieved_docs_text = self.rerank(query, retrieved_docs_text, rerank_k)
                 retrieved_docs_text = retrieved_docs_text[:rerank_k]
             
-            print("     => Generating answer...", flush=True)
+            # print("     => Generating answers...", flush=True)
             prompt = self.generate_prompt(retrieved_docs_text, query)
-            query.set_answer(self.reader_llm(prompt)[0]["generated_text"])
+
+            answers = []
+
+            for _ in range(repeat):
+                answers.append(self.reader_llm(prompt)[0]["generated_text"].replace('\n', ' '))
+            
+            query.set_answers(answers)
+            
             print("\n", flush=True)
-
-
-    # def prompt_model(self, brerank: bool = False, top_k=3, rerank_k=3):
-    #     for query in self.questions:
-    #         print("     => Retrieving documents...", flush=True)
-    #         self.retrieve(top_k, query)
-    #         retrieved_docs_text = [doc.page_content for doc in query.retrieved_docs]
-    #         retrieved_docs_text = retrieved_docs_text[:top_k]
             
-    #         if brerank:
-    #             print("     => Reranking documents...", flush=True)
-    #             retrieved_docs_text = self.rerank(query, retrieved_docs_text, rerank_k)
-    #             retrieved_docs_text = retrieved_docs_text[:rerank_k]
-            
-    #         print("     => Generating answer...", flush=True)
-    #         prompt = self.generate_prompt(retrieved_docs_text, query)
-    #         # print(prompt, flush=True)
-    #         model_inputs = self.tokenizer([prompt], return_tensors="pt").to("cuda")
-            
-    #         generated_ids = self.reader_model.generate(
-    #                                         **model_inputs,
-    #                                         do_sample=True,
-    #                                         temperature=self.temperature,  # Parameter to vary
-    #                                         repetition_penalty=1.1,
-    #                                         max_new_tokens=self.max_new_tokens,
-    #                                       )
-
-    #         output_ids = generated_ids[0][len(model_inputs.input_ids[0]):].tolist() 
-
-    #         thinking_content = ''
-    #         # parsing thinking content
-    #         try:
-    #             # rindex finding 151668 (</think>)
-    #             index = len(output_ids) - output_ids[::-1].index(151668)
-    #             thinking_content = self.tokenizer.decode(output_ids[:index], skip_special_tokens=True).strip("\n")
-    #         except ValueError:
-    #             index = 0
-
-    #         content = self.tokenizer.decode(output_ids[index:], skip_special_tokens=True).strip("\n")
-    #         query.set_answer(content)
-

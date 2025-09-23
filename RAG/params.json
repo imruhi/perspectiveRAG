@@ -3,13 +3,13 @@
   "vec_save": "VECTOR_STORAGE",
   "model_names": ["Qwen/Qwen3-32B", "allenai/OLMo-7B-Instruct-hf"],
   "cross_encoder_name": "colbert-ir/colbertv2.0",
-  "embedding_model_name": "all-MiniLM-L6-v2",
+  "embedding_model_name": "distiluse-base-multilingual-cased-v1",
   "max_new_tokens": 300,
   "temperature": 0.3,
   "dataset_path": "all-texts-metadata_topics",
   "topics": [89, 92, 135],
   "top_k": 20,
   "rerank": "True",
-  "rerank_k": 3
-
+  "rerank_k": 3,
+  "repeat": 3
 }
