@@ -1,8 +1,8 @@
 from sentence_transformers import SentenceTransformer, util
 import json
-import pickle
 import pandas as pd
 from rouge_score import rouge_scorer
+import itertools
 
 scorer = rouge_scorer.RougeScorer(['rougeL'], use_stemmer=True)
 
@@ -22,20 +22,24 @@ def rougeL_fmeasure(sent1, sent2):
     return round(scorer.score(sent1, sent2)["rougeL"].fmeasure, 4)
 
 
-def get_evaluate_measures(answers):
+def get_evaluate_measures(answers, lang_pairs=None):
     """
-    get semantic similarity and rouge scores
+    bertscore between languages
+    :param lang_pairs: pairs of language for evaluation
     :param answers: answers df
     :return: measures df
     """
 
-    # There is probably a better way to do this but I'm tired
+    # Better way to do it since I'm less tired
+    # one to many comparison
 
     all_measures = []
     models = list(answers["model"].unique())
     questions = list(answers["question_mapped"].unique())
 
-    lang_pairs = [["NL", "FR"], ["FR", "EN"], ["EN", "NL"]]
+    if lang_pairs is None:
+        # use all language pairs
+        lang_pairs = list(itertools.combinations(answers["language"].unique(), 2))
 
     for model_name in models:
 
@@ -45,40 +49,48 @@ def get_evaluate_measures(answers):
 
             df2 = df1[df1["question_mapped"] == question].reset_index(drop=True)
 
-            for i in range(PARAMS["repeat"]):
+            for pair in lang_pairs:
+                all_answers_1 = list(df2[df2["language"] == pair[0]].reset_index(drop=True)["answers"].iloc[0])
+                baseline_answers_1 = list(
+                    df2[df2["language"] == pair[0]].reset_index(drop=True)["baseline_answer"].iloc[0])
+                all_answers_2 = list(df2[df2["language"] == pair[1]].reset_index(drop=True)["answers"].iloc[0])
+                baseline_answers_2 = list(
+                    df2[df2["language"] == pair[1]].reset_index(drop=True)["baseline_answer"].iloc[0])
 
-                for pair in lang_pairs:
+                pair_answers = list(itertools.product(all_answers_1, all_answers_2))
+                pair_answers_baseline = list(itertools.product(baseline_answers_1, baseline_answers_2))
 
-                    ans1 = df2[df2["language"] == pair[0]].reset_index(drop=True)[f"repeat_{i + 1}"].iloc[0]
-                    ans2 = df2[df2["language"] == pair[1]].reset_index(drop=True)[f"repeat_{i + 1}"].iloc[0]
-                    ans1b = df2[df2["language"] == pair[0]].reset_index(drop=True)[f"baseline_repeat_{i + 1}"].iloc[0]
-                    ans2b = df2[df2["language"] == pair[1]].reset_index(drop=True)[f"baseline_repeat_{i + 1}"].iloc[0]
-
-                    cosine = cosine_sim(ans1, ans2)
-                    cosineb = cosine_sim(ans1b, ans2b)
-
-                    rouge = rougeL_fmeasure(ans1, ans2)
-                    rougeb = rougeL_fmeasure(ans1b, ans2b)
-
-                    all_measures.append([model_name, question, cosine, rouge, False, f"{pair[0]}-{pair[1]}"])
-                    all_measures.append([model_name, question, cosineb, rougeb, True, f"{pair[0]}-{pair[1]}"])
+                # product pairs with context
+                for x in pair_answers:
+                    cosine = cosine_sim(x[0], x[1])
+                    all_measures.append([model_name, question, cosine, False, f"{pair[0]}-{pair[1]}"])
+                # product pairs with baselines
+                for x in pair_answers_baseline:
+                    cosineb = cosine_sim(x[0], x[1])
+                    all_measures.append([model_name, question, cosineb, True, f"{pair[0]}-{pair[1]}"])
 
     all_measures_df = pd.DataFrame(all_measures,
-                                   columns=["Model", "Question", "Cosine", "Rouge", "fBaseline", "Language1-Language2"])
+                                   columns=["Model", "Question", "Cosine", "fBaseline", "Language1-Language2"])
     return all_measures_df
 
 
-def get_compare_measures(answers):
+def get_compare_measures(answers, languages=None):
     """
-    Compare language specific answers to baselines
+    scores amongst languages and baseline
+    :param languages: languages for evaluation
+    :param answers: answers df
     :return: measures df
     """
 
-    # There is probably a better way to do this but I'm tired
+    # Better way to do it
+    # one to many comparison
 
     all_measures = []
     models = list(answers["model"].unique())
     questions = list(answers["question_mapped"].unique())
+
+    if languages is None:
+        languages = list(answers["language"].unique())
 
     for model_name in models:
 
@@ -88,17 +100,15 @@ def get_compare_measures(answers):
 
             df2 = df1[df1["question_mapped"] == question].reset_index(drop=True)
 
-            for lang in PARAMS["languages"]:
+            for lang in languages:
+                all_answers = list(df2[df2["language"] == lang].reset_index(drop=True)["answers"].iloc[0])
+                baseline_answers = list(df2[df2["language"] == lang].reset_index(drop=True)["baseline_answer"].iloc[0])
 
-                for i in range(PARAMS["repeat"]):
-
-                    baseline = df2[df2["language"] == lang].reset_index(drop=True)[f"baseline_repeat_{i + 1}"].iloc[0]
-                    context = df2[df2["language"] == lang].reset_index(drop=True)[f"repeat_{i + 1}"].iloc[0]
-
-                    cosine = cosine_sim(baseline, context)
-                    rouge = rougeL_fmeasure(baseline, context)
-                    all_measures.append(
-                        [model_name, question, lang, cosine, rouge])
+                pair_answers = list(itertools.product(all_answers, baseline_answers))
+                for x in pair_answers:
+                    cosine = cosine_sim(x[0], x[1])
+                    rouge = rougeL_fmeasure(x[0], x[1])
+                    all_measures.append([model_name, question, lang, cosine, rouge])
 
     all_measures_df = pd.DataFrame(all_measures,
                                    columns=["Model", "Question", "Language", "Cosine", "Rouge"])
