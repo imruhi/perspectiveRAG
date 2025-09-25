@@ -112,21 +112,27 @@ def main():
 
 
 def evaluate():
-    paths = glob.glob("t*")
+    paths = glob.glob("t0*")
     answers = [load_from_disk(x) for x in paths]
     answers = concatenate_datasets(answers)
-    with open("question_map.pkl", 'rb') as f:
-        question_map = pickle.load(f)
-    with open("params.json", 'r') as f:
-        params = json.load(f)
-    answers = answers.add_column("question_mapped", [question_map[x] for x in answers["question"]])
-    answers = answers.to_pandas()
-    answers[[f"repeat_{i + 1}" for i in range(params["repeat"])]] = pd.DataFrame(answers.answers.to_list(),
-                                                                                 index=answers.index)
-    answers[[f"baseline_repeat_{i + 1}" for i in range(params["repeat"])]] = pd.DataFrame(
-        answers.baseline_answer.to_list(), index=answers.index)
 
-    answers.drop(["answers", "baseline_answer"], axis=1, inplace=True)
+    answers = answers.to_pandas()
+
+    questions_NL = answers[answers["language"] == 'NL']["question"].unique()
+    questions_EN = answers[answers["language"] == 'EN']["question"].unique()
+    questions_FR = answers[answers["language"] == 'FR']["question"].unique()
+
+    question_map_NL = {questions_NL[f]: f"Question {f + 1}" for f in range(len(questions_NL))}
+    question_map_EN = {questions_EN[f]: f"Question {f + 1}" for f in range(len(questions_EN))}
+    question_map_FR = {questions_FR[f]: f"Question {f + 1}" for f in range(len(questions_FR))}
+
+    question_map = dict(question_map_NL, **question_map_EN, **question_map_FR)
+    print(question_map)
+    answers["question_mapped"] = [question_map[x] for x in answers["question"]]
+
+    with open("question_map.pkl", 'wb') as f:
+        pickle.dump(question_map, f)
+
     evaluate_measures = get_evaluate_measures(answers)
     evaluate_measures.to_csv("metrics.csv")
     compare_measures = get_compare_measures(answers)
