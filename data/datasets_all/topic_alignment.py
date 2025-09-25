@@ -1,8 +1,9 @@
 import os.path
 import pickle
-from datasets import load_from_disk
+from datasets import load_from_disk, Dataset
 from bertopic import BERTopic
 from sentence_transformers import SentenceTransformer
+import numpy as np
 
 
 def align_text(embed_model_name="sentence-transformers/distiluse-base-multilingual-cased-v1",
@@ -30,17 +31,21 @@ def align_text(embed_model_name="sentence-transformers/distiluse-base-multilingu
         with open("all_texts_embeddings.pkl", 'wb') as p:
             pickle.dump(embeddings, p)
 
-    if not os.path.exists(ds_path+"_topics"):
+    if not os.path.exists(ds_path + "_topics"):
         ds = ds.remove_columns("__index_level_0__")
 
-        iter = ds.iter(batch_size=10000)
+        iter_ = ds.iter(batch_size=10000)
         topics = []
         i = 0
-        for subset in iter:
+        for subset in iter_:
             ts, probs = loaded_model.transform(documents=subset['CleanedText'],
                                                embeddings=embeddings[i:i + len(subset["CleanedText"])])
             topics.extend(list(ts))
             i += len(subset["CleanedText"])
 
+        # Todo: temp fix for the topic situation in wiki?
         ds = ds.add_column("Topic", topics)
+        df = ds.to_pandas()
+        df["Topic"] = [np.int64(89) if x == "wiki" else y for x, y in zip(df["Source"], df["Topic"])]
+        ds = Dataset.from_pandas(df)
         ds.save_to_disk(ds_path + "_topics")

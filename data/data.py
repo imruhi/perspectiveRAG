@@ -218,8 +218,10 @@ class BLBooks:
         :param language: needs to be either English or French or Dutch?
         """
         self.path = f"C:/Users/imruh/Documents/perspectiveRAG/data/datasets_all/blbooks-subset-{language}"
+        if os.path.exists(self.path + f"-cleaned"):
+            self.dataset = Dataset.load_from_disk(self.path + "-cleaned")
 
-        if not os.path.exists(self.path):
+        elif not os.path.exists(self.path):
             ds = load_dataset("TheBritishLibrary/blbooks", trust_remote_code=True, split='train')
             # filter for correct language, date and better ocr'd text
             filtered_ds = ds.filter(
@@ -227,9 +229,6 @@ class BLBooks:
                     'Language_1'] == language and example["mean_wc_ocr"] > 0.7)
             filtered_ds.save_to_disk(self.path)
 
-        if os.path.exists(self.path + f"-cleaned"):
-            self.dataset = Dataset.load_from_disk(self.path + "-cleaned")
-        else:
             dataset = Dataset.load_from_disk(self.path)
             dataset = dataset.rename_columns({"text": "Text"})
             self.dataset = preprocess(dataset, self.path)
@@ -237,6 +236,7 @@ class BLBooks:
                 chunk_examples,
                 batched=True,
             )
+
         self.path = self.path + "-cleaned"
 
 
