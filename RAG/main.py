@@ -10,7 +10,7 @@ from questions import load_questions
 import json
 import time
 import glob
-from evaluate_gen import get_evaluate_measures, get_compare_measures
+from evaluate_gen import get_amonst_lang_eval, get_baseline_lang_eval, get_reranked_doc_eval
 
 
 # TODO: probably a way to adjust params so it goes faster but can't be bothered
@@ -133,10 +133,9 @@ def evaluate():
     with open("question_map.pkl", 'wb') as f:
         pickle.dump(question_map, f)
 
-    evaluate_measures = get_evaluate_measures(answers)
-    evaluate_measures.to_csv("metrics.csv")
-    compare_measures = get_compare_measures(answers)
-    compare_measures.to_csv("baseline_compare_metrics.csv")
+    get_amonst_lang_eval(answers).to_csv("among_lang_metrics.csv")
+    get_baseline_lang_eval(answers).to_csv("between_lang_baseline_metrics.csv")
+    get_reranked_doc_eval(answers).to_csv("retrieved_docs_metrics")
 
 
 if __name__ == "__main__":
