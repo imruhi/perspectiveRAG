@@ -23,9 +23,9 @@ def rougeL_fmeasure(sent1, sent2):
     return round(scorer.score(sent1, sent2)["rougeL"].fmeasure, 4)
 
 
-def get_baseline_lang_eval(answers, lang_pairs=None):
+def get_amonst_lang_eval(answers, lang_pairs=None):
     """
-    bertscore between languages and also between language and baseline
+    scores amongst languages and baseline
     :param lang_pairs: pairs of language for evaluation
     :param answers: answers df
     :return: measures df
@@ -75,9 +75,9 @@ def get_baseline_lang_eval(answers, lang_pairs=None):
     return all_measures_df
 
 
-def get_amonst_lang_eval(answers, languages=None):
+def get_baseline_lang_eval(answers, languages=None):
     """
-    scores amongst languages and baseline
+    bertscore between languages and also between language and baseline
     :param languages: languages for evaluation
     :param answers: answers df
     :return: measures df
@@ -131,7 +131,6 @@ def get_reranked_doc_eval(answers, dspath="all-texts-metadata_topics", languages
     if languages is None:
         languages = list(answers["language"].unique())
 
-    languages = list(answers["language"].unique())
     models = list(answers["model"].unique())
     questions = list(answers["question_mapped"].unique())
     all_measures = []
@@ -144,8 +143,8 @@ def get_reranked_doc_eval(answers, dspath="all-texts-metadata_topics", languages
             df2 = df1[df1["question_mapped"] == question].reset_index(drop=True)
 
             for lang in languages:
-                all_answers = list(df2[df2["language"] == lang].reset_index(drop=True)["answers"].iloc[0])
-                pairs = list(itertools.combinations(all_answers["reranked_doc_ids"][0], 2))
+                all_answers = list(df2[df2["language"] == lang].reset_index(drop=True)["reranked_doc_ids"].iloc[0])
+                pairs = list(itertools.combinations(all_answers, 2))
                 for p in pairs:
                     cosine = cosine_sim(texts_dict[p[0]], texts_dict[p[1]])
                     rouge = rougeL_fmeasure(texts_dict[p[0]], texts_dict[p[1]])
