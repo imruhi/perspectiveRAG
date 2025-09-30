@@ -124,7 +124,7 @@ class AdvancedRAG:
                 self.set_knowledge_base(pickle.load(f))
         else:
             # Load dataset
-            ds = load_dataset(self.dataset_path, self.topics, self.language)
+            ds = load_dataset(self.dataset_path, self.topics, self.language, self.bwiki)
             # make KB, is a list of LangChain Docs (dataset is already chunked)
             print("Making KB", flush=True)
             self.set_knowledge_base([
