@@ -67,7 +67,7 @@ class Query:
 
 class AdvancedRAG:
     def __init__(self, embedding_model_name, reader_model_name, cross_encoder_name, topics: list[int],
-                 dataset_path='RAG_DB', temperature=0.2, max_new_tokens=300):
+                 dataset_path='RAG_DB', temperature=0.2, max_new_tokens=300, bwiki="False"):
         # Init params
         self.dataset_path = dataset_path
         self.topics = topics
@@ -81,6 +81,7 @@ class AdvancedRAG:
         self.knowledge_base = None
         # questions is a list of Query
         self.questions = []
+        self.bwiki = True if bwiki == "True" else False
 
         self.embedding_model = HuggingFaceEmbeddings(
             model_name=self.embedding_model_name,
@@ -115,7 +116,8 @@ class AdvancedRAG:
         self.init_knowledge_base()
 
     def init_knowledge_base(self):
-        new_path = self.dataset_path + '_' + self.language + '_KB.pkl'
+        add_on = "withwiki" if self.bwiki else "withoutwiki"
+        new_path = self.dataset_path + '_' + self.language + add_on + '_KB.pkl'
         if path.exists(new_path):
             print("Loading KB", flush=True)
             with open(new_path, 'rb') as f:
@@ -171,12 +173,13 @@ class AdvancedRAG:
         context = ""
         context += "".join([f"\nDocument {str(i)}:::" + doc for i, doc in enumerate(retrieved_docs_text)])
         prompt_chat = Prompt(language=query.language, question=query.question, context=context).chat_prompt
-        return self.tokenizer.apply_chat_template(prompt_chat, tokenize=False, add_generation_prompt=True, enable_thinking=False)
+        return self.tokenizer.apply_chat_template(prompt_chat, tokenize=False, add_generation_prompt=True,
+                                                  enable_thinking=False)
 
     def prompt_model_baseline(self, repeat):
         for query in self.questions:
             # print("     => Baseline answer...", flush=True)
-            baseline=[]
+            baseline = []
             for _ in range(repeat):
                 prompt = self.generate_prompt([], query)
                 baseline.append(self.reader_llm(prompt)[0]["generated_text"])
@@ -191,12 +194,12 @@ class AdvancedRAG:
             self.retrieve(top_k, query)
             retrieved_docs_text = [doc.page_content for doc in query.retrieved_docs]
             retrieved_docs_text = retrieved_docs_text[:top_k]
-            
+
             if brerank:
                 # print("     => Reranking documents...", flush=True)
                 retrieved_docs_text = self.rerank(query, retrieved_docs_text, rerank_k)
                 retrieved_docs_text = retrieved_docs_text[:rerank_k]
-            
+
             # print("     => Generating answers...", flush=True)
             prompt = self.generate_prompt(retrieved_docs_text, query)
 
@@ -204,8 +207,7 @@ class AdvancedRAG:
 
             for _ in range(repeat):
                 answers.append(self.reader_llm(prompt)[0]["generated_text"].replace('\n', ' '))
-            
+
             query.set_answers(answers)
-            
+
             print("\n", flush=True)
-            

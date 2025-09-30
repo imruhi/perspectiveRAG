@@ -11,5 +11,6 @@
   "top_k": 20,
   "rerank": "True",
   "rerank_k": 3,
-  "repeat": 3
+  "repeat": 3,
+  "bwiki": "False"
 }

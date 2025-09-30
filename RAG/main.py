@@ -31,7 +31,7 @@ def main():
         aRag = AdvancedRAG(embedding_model_name=params["embedding_model_name"], max_new_tokens=params["max_new_tokens"],
                            reader_model_name=model_name, cross_encoder_name=params["cross_encoder_name"],
                            dataset_path=params["dataset_path"], temperature=params["temperature"],
-                           topics=params["topics"])
+                           topics=params["topics"], bwiki=params["bwiki"])
 
         for language in params["languages"]:
 
