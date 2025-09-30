@@ -27,18 +27,6 @@ def main():
 
     for model_name in params["model_names"]:
 
-        all_answers = []
-        reranked_doc_ids = []
-        retrieved_doc_ids = []
-        model_names = []
-        all_questions = []
-        all_languages = []
-        baseline_answers = []
-
-        results_path = (f"t{params['temperature']}_new{params['max_new_tokens']}_"
-                        f"{params['embedding_model_name'].split('/')[-1]}_"
-                        f"{params['cross_encoder_name'].split('/')[-1]}_{model_name.split('/')[-1]}")
-
         # one KB and one vec storage for each language (also topics filtered out in both)
         aRag = AdvancedRAG(embedding_model_name=params["embedding_model_name"], max_new_tokens=params["max_new_tokens"],
                            reader_model_name=model_name, cross_encoder_name=params["cross_encoder_name"],
@@ -46,6 +34,20 @@ def main():
                            topics=params["topics"])
 
         for language in params["languages"]:
+
+            all_answers = []
+            reranked_doc_ids = []
+            retrieved_doc_ids = []
+            model_names = []
+            all_questions = []
+            all_languages = []
+            baseline_answers = []
+
+            # save per language
+            results_path = (f"t{params['temperature']}_new{params['max_new_tokens']}_"
+                            f"{params['embedding_model_name'].split('/')[-1]}_"
+                            f"{params['cross_encoder_name'].split('/')[-1]}_{model_name.split('/')[-1]}_{language}")
+
             print(f"On {model_name} for {language}", flush=True)
             vec_save = params["vec_save"] + "_" + language + ".pkl"
 
@@ -85,27 +87,27 @@ def main():
 
             aRag.questions = []
 
-        # save answers based on language
-        df = pd.DataFrame({"question": all_questions,
-                           "answers": all_answers,
-                           "baseline_answer": baseline_answers,
-                           "reranked_doc_ids": reranked_doc_ids,
-                           "retrieved_doc_ids": retrieved_doc_ids,
-                           "language": all_languages,
-                           "model": model_names})
+            # save answers based on language
+            df = pd.DataFrame({"question": all_questions,
+                               "answers": all_answers,
+                               "baseline_answer": baseline_answers,
+                               "reranked_doc_ids": reranked_doc_ids,
+                               "retrieved_doc_ids": retrieved_doc_ids,
+                               "language": all_languages,
+                               "model": model_names})
 
-        features = Features({
-            "question": Value("string"),
-            "answers": Sequence(Value("string")),
-            "baseline_answer": Sequence(Value("string")),
-            "reranked_doc_ids": Sequence(Value("string")),
-            "retrieved_doc_ids": Sequence(Value("string")),
-            "language": Value("string"),
-            "model": Value("string"),
-        })
+            features = Features({
+                "question": Value("string"),
+                "answers": Sequence(Value("string")),
+                "baseline_answer": Sequence(Value("string")),
+                "reranked_doc_ids": Sequence(Value("string")),
+                "retrieved_doc_ids": Sequence(Value("string")),
+                "language": Value("string"),
+                "model": Value("string"),
+            })
 
-        ds = Dataset.from_pandas(df, features=features)
-        ds.save_to_disk(results_path)
+            ds = Dataset.from_pandas(df, features=features)
+            ds.save_to_disk(results_path)
 
     end = time.time()
     print(f"{(end - start) / 60} mins", flush=True)
@@ -139,6 +141,6 @@ def evaluate():
 
 
 if __name__ == "__main__":
-    freeze_support()  # for synchronity issues in using FAISS to make vec store
+    # freeze_support()  # for synchronity issues in using FAISS to make vec store
     # main()            # generate answers
     evaluate()

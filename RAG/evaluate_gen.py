@@ -41,7 +41,7 @@ def get_amonst_lang_eval(answers, lang_pairs=None):
     if lang_pairs is None:
         # use all language pairs
         lang_pairs = list(itertools.combinations(answers["language"].unique(), 2))
-
+    print(lang_pairs)
     for model_name in models:
 
         df1 = answers[answers["model"] == model_name].reset_index(drop=True)
