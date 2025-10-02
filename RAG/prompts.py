@@ -13,15 +13,15 @@ class Prompt:
             self.set_fr_chat(self.context, self.question)
 
     def set_nl_chat(self, context: str, question: str):
-        system_prompt = f'''Geef een uitgebreid antwoord op de vraag, waarbij je je kennis en de informatie in de juiste context plaatst.
-Reageer alleen op de gestelde vraag; je antwoord moet beknopt en relevant zijn voor de vraag. Reageer in het Nederlands.'''
+        system_prompt = f'''Geef een uitgebreid antwoord op de vraag, gebruikmakend van je eigen kennis en de informatie in de gegeven context.
+Reageer alleen op de gegeven vraag; je antwoord moet beknopt en relevant zijn voor de vraag. Reageer in het Nederlands.'''
 
         user_prompt = f'''
         Context:
         {context}
         ---
         Dit is de vraag die je moet beantwoorden.
-        
+
         Vraag: {question}
         '''
         self.chat_prompt = [
@@ -30,7 +30,7 @@ Reageer alleen op de gestelde vraag; je antwoord moet beknopt en relevant zijn v
         ]
 
     def set_en_chat(self, context: str, question: str):
-        system_prompt = f'''Provide a comprehensive answer to the question, using your knowledge and the information in the given context.
+        system_prompt = f'''Provide a comprehensive answer to the question, using your own knowledge and the information in the given context.
 Respond only to the given question; your answer should be concise and relevant to the question. Respond in English.'''
 
         user_prompt = f'''
@@ -47,7 +47,7 @@ Respond only to the given question; your answer should be concise and relevant t
         ]
 
     def set_fr_chat(self, context: str, question: str):
-        system_prompt = f'''Répondez de manière exhaustive à la question posée, en utilisant vos connaissances et les informations disponibles dans le contexte donné.
+        system_prompt = f'''Répondez de manière exhaustive à la question, en vous appuyant sur vos connaissances et les informations du contexte.
 Répondez uniquement à la question posée; votre réponse doit être concise et pertinente. Répondez en français.'''
 
         user_prompt = f'''

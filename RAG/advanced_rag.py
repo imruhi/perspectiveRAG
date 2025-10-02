@@ -161,7 +161,8 @@ class AdvancedRAG:
 
     def retrieve(self, top_k, query: Query):
         # TODO: retrieve documents based on source? need to add filter={"source": source} param
-        query.set_retrieved_docs(self.vector_base.similarity_search(query=query.question, k=top_k))
+        query.set_retrieved_docs(self.vector_base.max_marginal_relevance_search(query=query.question, k=top_k,
+                                                                                fetch_k=2*top_k, lambda_mult=0.5))
 
     def rerank(self, query: Query, retrieved_docs_text, top_k):
         retrieved_docs = self.reranker.rerank(query.question, retrieved_docs_text, k=top_k)

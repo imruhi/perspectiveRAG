@@ -23,6 +23,8 @@ def rougeL_fmeasure(sent1, sent2):
     return round(scorer.score(sent1, sent2)["rougeL"].fmeasure, 4)
 
 
+# TODO probably a faster way to do it since they all use the same for loops but a bit confusing to code
+
 def get_amonst_lang_eval(answers, lang_pairs=None):
     """
     scores amongst languages and baseline
@@ -114,6 +116,39 @@ def get_baseline_lang_eval(answers, languages=None):
     all_measures_df = pd.DataFrame(all_measures,
                                    columns=["Model", "Question", "Language", "Cosine", "Rouge"])
 
+    return all_measures_df
+
+
+def compare_within(answers, columns=None, languages=None):
+    if columns is None:
+        columns = ["answers", "baseline_answer"]
+
+    all_measures = []
+    models = list(answers["model"].unique())
+    questions = list(answers["question_mapped"].unique())
+
+    if languages is None:
+        languages = list(answers["language"].unique())
+
+    for model_name in models:
+
+        df1 = answers[answers["model"] == model_name].reset_index(drop=True)
+
+        for question in questions:
+
+            df2 = df1[df1["question_mapped"] == question].reset_index(drop=True)
+
+            for lang in languages:
+                for column in columns:
+                    all_answers = list(df2[df2["language"] == lang].reset_index(drop=True)[column].iloc[0])
+                    pairs = list(itertools.combinations(all_answers, 2))
+                    for p in pairs:
+                        cosine = cosine_sim(p[0], p[1])
+                        rouge = rougeL_fmeasure(p[0], p[1])
+                        all_measures.append([model_name, question, lang, cosine, rouge, column])
+
+    all_measures_df = pd.DataFrame(all_measures,
+                                   columns=["Model", "Question", "Language", "Cosine", "Rouge", "Answer"])
     return all_measures_df
 
 
