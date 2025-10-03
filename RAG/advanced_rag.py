@@ -93,7 +93,8 @@ class AdvancedRAG:
         # set reader model + tokenizer
         print("Setting reader model", flush=True)
         self.tokenizer = AutoTokenizer.from_pretrained(self.reader_model_name)
-        self.reader_model = AutoModelForCausalLM.from_pretrained(self.reader_model_name, quantization_config=BNB_CONFIG,
+        self.reader_model = AutoModelForCausalLM.from_pretrained(self.reader_model_name,
+                                                                 # quantization_config=BNB_CONFIG,
                                                                  dtype="auto", device_map="auto")
 
         self.reader_llm = pipeline(
@@ -162,7 +163,7 @@ class AdvancedRAG:
     def retrieve(self, top_k, query: Query):
         # TODO: retrieve documents based on source? need to add filter={"source": source} param
         query.set_retrieved_docs(self.vector_base.max_marginal_relevance_search(query=query.question, k=top_k,
-                                                                                fetch_k=2*top_k, lambda_mult=0.5))
+                                                                                fetch_k=2 * top_k, lambda_mult=0.5))
 
     def rerank(self, query: Query, retrieved_docs_text, top_k):
         retrieved_docs = self.reranker.rerank(query.question, retrieved_docs_text, k=top_k)
@@ -179,36 +180,35 @@ class AdvancedRAG:
 
     def prompt_model_baseline(self, repeat):
         for query in self.questions:
-            # print("     => Baseline answer...", flush=True)
             baseline = []
-            for _ in range(repeat):
-                prompt = self.generate_prompt([], query)
-                baseline.append(self.reader_llm(prompt)[0]["generated_text"])
+            prompt = self.generate_prompt([], query)
+            answers = self.reader_llm([prompt] * repeat)
+            baseline.extend([i["generated_text"] for x in answers for i in x])
             query.set_baseline_answers(baseline)
 
     def prompt_model(self, brerank: bool = False, top_k=3, rerank_k=3, repeat=3):
         """
         :param repeat: ONLY REPEAT GENERATION NOT RETRIEVAL AND RERANKING
         """
+
+        all_prompts = []
+
         for query in self.questions:
-            # print("     => Retrieving documents...", flush=True)
             self.retrieve(top_k, query)
             retrieved_docs_text = [doc.page_content for doc in query.retrieved_docs]
             retrieved_docs_text = retrieved_docs_text[:top_k]
 
             if brerank:
-                # print("     => Reranking documents...", flush=True)
                 retrieved_docs_text = self.rerank(query, retrieved_docs_text, rerank_k)
                 retrieved_docs_text = retrieved_docs_text[:rerank_k]
 
-            # print("     => Generating answers...", flush=True)
             prompt = self.generate_prompt(retrieved_docs_text, query)
+            all_prompts.append(prompt)
 
-            answers = []
+        answers = self.reader_llm(all_prompts)
+        answers = [i["generated_text"].replace('\n', ' ') for x in answers for i in x]
 
-            for _ in range(repeat):
-                answers.append(self.reader_llm(prompt)[0]["generated_text"].replace('\n', ' '))
+        for query, answer in zip(self.questions, answers):
+            query.set_answers(answer)
 
-            query.set_answers(answers)
-
-            print("\n", flush=True)
+        print("\n", flush=True)
