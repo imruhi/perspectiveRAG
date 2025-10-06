@@ -1,7 +1,7 @@
 {
   "languages": ["NL", "EN", "FR"],
   "vec_save": "VECTOR_STORAGE",
-  "model_names": ["Qwen/Qwen3-4B-Instruct-2507"],
+  "model_names": ["Qwen/Qwen3-4B-Instruct-2507", "Qwen/Qwen3-30B-A3B-Instruct-2507", "Qwen/Qwen3-235B-A22B-Instruct-2507"],
   "cross_encoder_name": "colbert-ir/colbertv2.0",
   "embedding_model_name": "distiluse-base-multilingual-cased-v1",
   "max_new_tokens": 300,

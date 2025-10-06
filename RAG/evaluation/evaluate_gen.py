@@ -10,7 +10,7 @@ import os
 
 scorer = rouge_scorer.RougeScorer(['rougeL'], use_stemmer=True)
 
-with open("../params.json", 'r') as f:
+with open("params.json", 'r') as f:
     PARAMS = json.load(f)
 
 SMODEL = SentenceTransformer(PARAMS["embedding_model_name"])
@@ -249,7 +249,7 @@ def turn_text_to_conll(answers, ):
     """
     For UD profilling, turn each answer into one document of lines in conll-u format
     :param answers: answers df
-    :return: return a file which can be saved
+    :return: none, file is saved
     """
 
     if not os.path.exists("augmented_answers"):
@@ -257,13 +257,17 @@ def turn_text_to_conll(answers, ):
     if not os.path.exists("baseline_answers"):
         os.makedirs("baseline_answers")
 
+    answers["idx"] = [i for i in range(1, len(answers) + 1)]
+
     for _, row in answers.iterrows():
         idx = row["idx"]
         i = 1
         question = row["question_mapped"].replace(" ", "")
         for a, b in zip(row["answers"], row["baseline_answer"]):
+            a = a.replace("*", "").replace("#", "")
+            b = b.replace("*", "").replace("#", "")
             sentences = [pos_tag(word_tokenize(sent)) for sent in sent_tokenize(a)]
-            sentencesb = [pos_tag(word_tokenize(sent)) for sent in sent_tokenize(a)]
+            sentencesb = [pos_tag(word_tokenize(sent)) for sent in sent_tokenize(b)]
 
             tagged_sents = taggedsents_to_conll(sentences)
             tagged_sentsb = taggedsents_to_conll(sentencesb)
@@ -272,11 +276,12 @@ def turn_text_to_conll(answers, ):
             textb = "".join([x for x in tagged_sentsb])
 
             f_name = f"augmented_answers/{idx}_{question}_{i}.txt"
-            with open(f_name, "w", encoding="utf-8") as f:
-                f.write(text)
+            with open(f_name, "w", encoding="utf-8") as f1:
+                f1.write(text)
+
             f_name = f"baseline_answers/{idx}_{question}_{i}.txt"
-            with open(f_name, "w", encoding="utf-8") as f:
-                f.write(textb)
+            with open(f_name, "w", encoding="utf-8") as fb:
+                fb.write(textb)
 
             i += 1
 

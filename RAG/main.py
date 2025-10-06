@@ -3,7 +3,7 @@ from advanced_rag import AdvancedRAG
 import pandas as pd
 from langchain_community.vectorstores import FAISS
 from langchain_community.vectorstores.utils import DistanceStrategy
-from os import path
+import os
 from datasets import Dataset, Features, Value, Sequence, load_from_disk, concatenate_datasets
 from questions import load_questions
 import json
@@ -11,6 +11,7 @@ import time
 import glob
 from RAG.evaluation.evaluate_gen import (get_amonst_lang_eval, get_baseline_lang_eval, get_reranked_doc_eval, compare_within,
                                          get_amonst_lang_setting_eval, turn_text_to_conll)
+from sentence_splitter import SentenceSplitter, split_text_into_sentences
 
 
 # TODO: probably a way to adjust params so it goes faster but can't be bothered
@@ -57,7 +58,7 @@ def main():
             aRag.prepare()  # change KB to curr language one, so model isn't loaded every turn
             # vector database init based on cosine
             # pickle save/load, can't find anything better
-            if path.exists(vec_save):
+            if os.path.exists(vec_save):
                 print("Loading VD", flush=True)
                 with open(vec_save, 'rb') as f:
                     aRag.set_vector_store(pickle.load(f))
@@ -116,27 +117,31 @@ def main():
 def get_answers_df():
     paths = glob.glob("evaluation/t0*")
     print(paths)
-    answers = [load_from_disk(x) for x in paths]
-    answers = concatenate_datasets(answers)
 
-    answers = answers.to_pandas()
+    if not os.path.exists("evaluation/all_answers"):
+        answers = [load_from_disk(x) for x in paths]
+        answers = concatenate_datasets(answers)
 
-    questions_NL = answers[answers["language"] == 'NL']["question"].unique()
-    questions_EN = answers[answers["language"] == 'EN']["question"].unique()
-    questions_FR = answers[answers["language"] == 'FR']["question"].unique()
+        answers = answers.to_pandas()
+        map_ = []
+        for language in ["NL", "EN", "FR"]:
+            subset = answers[answers["language"] == language]
+            questions = subset["question"].unique()
+            # TOD0: remove incomplete sentences from answer?
+            for f in range(len(questions)):
+                map_.append([questions[f], f"Question {f+1}"])
 
-    question_map_NL = {questions_NL[f]: f"Question {f + 1}" for f in range(len(questions_NL))}
-    question_map_EN = {questions_EN[f]: f"Question {f + 1}" for f in range(len(questions_EN))}
-    question_map_FR = {questions_FR[f]: f"Question {f + 1}" for f in range(len(questions_FR))}
+        question_map = {x[0]: x[1] for x in map_}
+        print(question_map)
+        answers["question_mapped"] = [question_map[x] for x in answers["question"]]
 
-    question_map = dict(question_map_NL, **question_map_EN, **question_map_FR)
-    print(question_map)
-    answers["question_mapped"] = [question_map[x] for x in answers["question"]]
+        with open("evaluation/question_map.pkl", 'wb') as f:
+            pickle.dump(question_map, f)
 
-    with open("evaluation/question_map.pkl", 'wb') as f:
-        pickle.dump(question_map, f)
-
-    return answers
+        Dataset.from_pandas(answers).save_to_disk("evaluation/all_answers")
+        return answers
+    else:
+        return load_from_disk("evaluation/all_answers").to_pandas()
 
 
 def evaluate():
@@ -156,5 +161,5 @@ def answers_ud():
 if __name__ == "__main__":
     # freeze_support()  # for synchronity issues in using FAISS to make vec store
     # main()            # generate answers
-    evaluate()
+    # evaluate()
     answers_ud()
