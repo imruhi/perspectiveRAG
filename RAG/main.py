@@ -11,7 +11,7 @@ import json
 import time
 import glob
 from evaluate_gen import (get_amonst_lang_eval, get_baseline_lang_eval, get_reranked_doc_eval, compare_within,
-                          get_amonst_lang_setting_eval)
+                          get_amonst_lang_setting_eval, turn_text_to_conll)
 
 
 # TODO: probably a way to adjust params so it goes faster but can't be bothered
@@ -114,7 +114,7 @@ def main():
     print(f"{(end - start) / 60} mins", flush=True)
 
 
-def evaluate():
+def get_answers_df():
     paths = glob.glob("evaluation/t0*")
     print(paths)
     answers = [load_from_disk(x) for x in paths]
@@ -137,11 +137,21 @@ def evaluate():
     with open("evaluation/question_map.pkl", 'wb') as f:
         pickle.dump(question_map, f)
 
+    return answers
+
+
+def evaluate():
+    answers = get_answers_df()
     get_amonst_lang_eval(answers).to_csv("evaluation/among_lang_metrics.csv")
     get_baseline_lang_eval(answers).to_csv("evaluation/between_lang_baseline_metrics.csv")
     get_reranked_doc_eval(answers).to_csv("evaluation/retrieved_docs_metrics.csv")
     compare_within(answers).to_csv("evaluation/within_baseline_non_baseline.csv")
     get_amonst_lang_setting_eval(answers).to_csv("evaluation/all_comparisons.csv")
+
+
+def answers_ud():
+    answers = get_answers_df()
+    turn_text_to_conll(answers=answers)
 
 
 if __name__ == "__main__":

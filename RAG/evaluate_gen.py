@@ -4,6 +4,9 @@ import pandas as pd
 from rouge_score import rouge_scorer
 import itertools
 from datasets import load_from_disk
+from nltk import word_tokenize, sent_tokenize, pos_tag
+from nltk.parse.util import taggedsents_to_conll
+import os
 
 scorer = rouge_scorer.RougeScorer(['rougeL'], use_stemmer=True)
 
@@ -74,6 +77,58 @@ def get_amonst_lang_eval(answers, lang_pairs=None):
 
     all_measures_df = pd.DataFrame(all_measures,
                                    columns=["Model", "Question", "Cosine", "fBaseline", "Language1-Language2"])
+    return all_measures_df
+
+
+def get_amonst_lang_setting_eval(answers, lang_pairs=None):
+    """
+    scores amongst all combinations constant for model
+    :param lang_pairs: pairs of language for evaluation
+    :param answers: answers df
+    :return: measures df
+    """
+
+    # Better way to do it since I'm less tired
+    # one to many comparison
+
+    all_measures = []
+    models = list(answers["model"].unique())
+    questions = list(answers["question_mapped"].unique())
+
+    if lang_pairs is None:
+        # use all language pairs
+        lang_pairs = list(itertools.combinations(answers["language"].unique(), 2))
+    print(lang_pairs)
+    for model_name in models:
+
+        df1 = answers[answers["model"] == model_name].reset_index(drop=True)
+
+        for question in questions:
+
+            df2 = df1[df1["question_mapped"] == question].reset_index(drop=True)
+
+            for pair in lang_pairs:
+                all_answers_1 = list(df2[df2["language"] == pair[0]].reset_index(drop=True)["answers"].iloc[0])
+                baseline_answers_1 = list(
+                    df2[df2["language"] == pair[0]].reset_index(drop=True)["baseline_answer"].iloc[0])
+                all_answers_2 = list(df2[df2["language"] == pair[1]].reset_index(drop=True)["answers"].iloc[0])
+                baseline_answers_2 = list(
+                    df2[df2["language"] == pair[1]].reset_index(drop=True)["baseline_answer"].iloc[0])
+
+                pair_answers = list(itertools.product(all_answers_1, baseline_answers_2))
+                pair_answers2 = list(itertools.product(all_answers_2, baseline_answers_1))
+
+                # product pairs with context
+                for x in pair_answers:
+                    cosine = cosine_sim(x[0], x[1])
+                    all_measures.append([model_name, question, cosine, f"{pair[0]}-{pair[1]}"])
+                # product pairs with baselines
+                for x in pair_answers2:
+                    cosineb = cosine_sim(x[0], x[1])
+                    all_measures.append([model_name, question, cosineb, f"{pair[0]}-{pair[1]}"])
+
+    all_measures_df = pd.DataFrame(all_measures,
+                                   columns=["Model", "Question", "Cosine", "Language1-Language2"])
     return all_measures_df
 
 
@@ -152,7 +207,7 @@ def compare_within(answers, columns=None, languages=None):
     return all_measures_df
 
 
-def get_reranked_doc_eval(answers, dspath="all-texts-metadata_topics", languages=None):
+def get_reranked_doc_eval(answers, dspath="evaluation/all-texts-metadata_topics", languages=None):
     """
     Evaluate the top k docs used in context for prompt
     :param answers: answers df
@@ -188,3 +243,40 @@ def get_reranked_doc_eval(answers, dspath="all-texts-metadata_topics", languages
     all_measures_df = pd.DataFrame(all_measures,
                                    columns=["Model", "Question", "Language", "Cosine", "Rouge"])
     return all_measures_df
+
+
+def turn_text_to_conll(answers, ):
+    """
+    For UD profilling, turn each answer into one document of lines in conll-u format
+    :param answers: answers df
+    :return: return a file which can be saved
+    """
+
+    if not os.path.exists("evaluation/augmented_answers"):
+        os.makedirs("evaluation/augmented_answers")
+    if not os.path.exists("evaluation/baseline_answers"):
+        os.makedirs("evaluation/baseline_answers")
+
+    for _, row in answers.iterrows():
+        idx = row["idx"]
+        i = 1
+        question = row["question_mapped"].replace(" ", "")
+        for a, b in zip(row["answers"], row["baseline_answer"]):
+            sentences = [pos_tag(word_tokenize(sent)) for sent in sent_tokenize(a)]
+            sentencesb = [pos_tag(word_tokenize(sent)) for sent in sent_tokenize(a)]
+
+            tagged_sents = taggedsents_to_conll(sentences)
+            tagged_sentsb = taggedsents_to_conll(sentencesb)
+
+            text = "".join([x for x in tagged_sents])
+            textb = "".join([x for x in tagged_sentsb])
+
+            f_name = f"evaluation/augmented_answers/{idx}_{question}_{i}.txt"
+            with open(f_name, "w", encoding="utf-8") as f:
+                f.write(text)
+            f_name = f"evaluation/baseline_answers/{idx}_{question}_{i}.txt"
+            with open(f_name, "w", encoding="utf-8") as f:
+                f.write(textb)
+
+            i += 1
+
