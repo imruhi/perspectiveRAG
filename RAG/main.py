@@ -158,3 +158,4 @@ if __name__ == "__main__":
     # freeze_support()  # for synchronity issues in using FAISS to make vec store
     # main()            # generate answers
     evaluate()
+    answers_ud()
