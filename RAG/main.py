@@ -10,7 +10,8 @@ from questions import load_questions
 import json
 import time
 import glob
-from evaluate_gen import get_amonst_lang_eval, get_baseline_lang_eval, get_reranked_doc_eval, compare_within
+from evaluate_gen import (get_amonst_lang_eval, get_baseline_lang_eval, get_reranked_doc_eval, compare_within,
+                          get_amonst_lang_setting_eval)
 
 
 # TODO: probably a way to adjust params so it goes faster but can't be bothered
@@ -114,7 +115,8 @@ def main():
 
 
 def evaluate():
-    paths = glob.glob("t0*")
+    paths = glob.glob("evaluation/t0*")
+    print(paths)
     answers = [load_from_disk(x) for x in paths]
     answers = concatenate_datasets(answers)
 
@@ -132,13 +134,14 @@ def evaluate():
     print(question_map)
     answers["question_mapped"] = [question_map[x] for x in answers["question"]]
 
-    with open("question_map.pkl", 'wb') as f:
+    with open("evaluation/question_map.pkl", 'wb') as f:
         pickle.dump(question_map, f)
 
-    get_amonst_lang_eval(answers).to_csv("among_lang_metrics.csv")
-    get_baseline_lang_eval(answers).to_csv("between_lang_baseline_metrics.csv")
-    get_reranked_doc_eval(answers).to_csv("retrieved_docs_metrics.csv")
-    compare_within(answers).to_csv("within_baseline_non_baseline.csv")
+    get_amonst_lang_eval(answers).to_csv("evaluation/among_lang_metrics.csv")
+    get_baseline_lang_eval(answers).to_csv("evaluation/between_lang_baseline_metrics.csv")
+    get_reranked_doc_eval(answers).to_csv("evaluation/retrieved_docs_metrics.csv")
+    compare_within(answers).to_csv("evaluation/within_baseline_non_baseline.csv")
+    get_amonst_lang_setting_eval(answers).to_csv("evaluation/all_comparisons.csv")
 
 
 if __name__ == "__main__":

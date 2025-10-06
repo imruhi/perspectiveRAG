@@ -180,35 +180,28 @@ class AdvancedRAG:
 
     def prompt_model_baseline(self, repeat):
         for query in self.questions:
-            baseline = []
             prompt = self.generate_prompt([], query)
             answers = self.reader_llm([prompt] * repeat)
-            baseline.extend([i["generated_text"] for x in answers for i in x])
-            query.set_baseline_answers(baseline)
+            query.set_baseline_answers([i["generated_text"] for x in answers for i in x])
 
     def prompt_model(self, brerank: bool = False, top_k=3, rerank_k=3, repeat=3):
         """
         :param repeat: ONLY REPEAT GENERATION NOT RETRIEVAL AND RERANKING
         """
 
-        all_prompts = []
-
         for query in self.questions:
+            # print("     => Retrieving documents...", flush=True)
             self.retrieve(top_k, query)
             retrieved_docs_text = [doc.page_content for doc in query.retrieved_docs]
             retrieved_docs_text = retrieved_docs_text[:top_k]
 
             if brerank:
+                # print("     => Reranking documents...", flush=True)
                 retrieved_docs_text = self.rerank(query, retrieved_docs_text, rerank_k)
                 retrieved_docs_text = retrieved_docs_text[:rerank_k]
 
+            # print("     => Generating answers...", flush=True)
             prompt = self.generate_prompt(retrieved_docs_text, query)
-            all_prompts.append(prompt)
-
-        answers = self.reader_llm(all_prompts)
-        answers = [i["generated_text"].replace('\n', ' ') for x in answers for i in x]
-
-        for query, answer in zip(self.questions, answers):
-            query.set_answers(answer)
-
-        print("\n", flush=True)
+            answers = self.reader_llm([prompt] * repeat)
+            query.set_answers([i["generated_text"].replace('\n', ' ') for x in answers for i in x])
+            print("\n", flush=True)
