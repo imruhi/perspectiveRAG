@@ -1,7 +1,6 @@
 import pickle
 from advanced_rag import AdvancedRAG
 import pandas as pd
-from multiprocessing import freeze_support
 from langchain_community.vectorstores import FAISS
 from langchain_community.vectorstores.utils import DistanceStrategy
 from os import path
@@ -10,8 +9,8 @@ from questions import load_questions
 import json
 import time
 import glob
-from evaluate_gen import (get_amonst_lang_eval, get_baseline_lang_eval, get_reranked_doc_eval, compare_within,
-                          get_amonst_lang_setting_eval, turn_text_to_conll)
+from RAG.evaluation.evaluate_gen import (get_amonst_lang_eval, get_baseline_lang_eval, get_reranked_doc_eval, compare_within,
+                                         get_amonst_lang_setting_eval, turn_text_to_conll)
 
 
 # TODO: probably a way to adjust params so it goes faster but can't be bothered

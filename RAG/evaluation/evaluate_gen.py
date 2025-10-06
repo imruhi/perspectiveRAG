@@ -10,7 +10,7 @@ import os
 
 scorer = rouge_scorer.RougeScorer(['rougeL'], use_stemmer=True)
 
-with open("params.json", 'r') as f:
+with open("../params.json", 'r') as f:
     PARAMS = json.load(f)
 
 SMODEL = SentenceTransformer(PARAMS["embedding_model_name"])
@@ -207,7 +207,7 @@ def compare_within(answers, columns=None, languages=None):
     return all_measures_df
 
 
-def get_reranked_doc_eval(answers, dspath="evaluation/all-texts-metadata_topics", languages=None):
+def get_reranked_doc_eval(answers, dspath="all-texts-metadata_topics", languages=None):
     """
     Evaluate the top k docs used in context for prompt
     :param answers: answers df
@@ -252,10 +252,10 @@ def turn_text_to_conll(answers, ):
     :return: return a file which can be saved
     """
 
-    if not os.path.exists("evaluation/augmented_answers"):
-        os.makedirs("evaluation/augmented_answers")
-    if not os.path.exists("evaluation/baseline_answers"):
-        os.makedirs("evaluation/baseline_answers")
+    if not os.path.exists("augmented_answers"):
+        os.makedirs("augmented_answers")
+    if not os.path.exists("baseline_answers"):
+        os.makedirs("baseline_answers")
 
     for _, row in answers.iterrows():
         idx = row["idx"]
@@ -271,10 +271,10 @@ def turn_text_to_conll(answers, ):
             text = "".join([x for x in tagged_sents])
             textb = "".join([x for x in tagged_sentsb])
 
-            f_name = f"evaluation/augmented_answers/{idx}_{question}_{i}.txt"
+            f_name = f"augmented_answers/{idx}_{question}_{i}.txt"
             with open(f_name, "w", encoding="utf-8") as f:
                 f.write(text)
-            f_name = f"evaluation/baseline_answers/{idx}_{question}_{i}.txt"
+            f_name = f"baseline_answers/{idx}_{question}_{i}.txt"
             with open(f_name, "w", encoding="utf-8") as f:
                 f.write(textb)
 
