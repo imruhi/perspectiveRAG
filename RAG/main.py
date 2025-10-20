@@ -8,13 +8,13 @@ from datasets import Dataset, Features, Value, Sequence, load_from_disk, concate
 from questions import load_questions
 import json
 import time
-import glob
-from RAG.evaluation.evaluate_gen import (get_amonst_lang_eval, get_baseline_lang_eval, get_reranked_doc_eval, compare_within,
-                                         get_amonst_lang_setting_eval, turn_text_to_conll)
-from sentence_splitter import SentenceSplitter, split_text_into_sentences
+from RAG.evaluation.evaluate_gen import (get_amonst_lang_eval, get_baseline_lang_eval, get_reranked_doc_eval,
+                                         compare_within,
+                                         get_amonst_lang_setting_eval, get_reranked_doc_question_eval_comp,
+                                         get_reranked_doc_answer_eval_comp)
+from RAG.utils import get_answers_df, prepare_ud, turn_text_to_conll_BL, prepare_frame, prepare_frame_source
 
 
-# TODO: probably a way to adjust params so it goes faster but can't be bothered
 def main():
     # load parameters
     with open("params.json", 'r') as f:
@@ -114,52 +114,25 @@ def main():
     print(f"{(end - start) / 60} mins", flush=True)
 
 
-def get_answers_df():
-    paths = glob.glob("evaluation/t0*")
-    print(paths)
-
-    if not os.path.exists("evaluation/all_answers"):
-        answers = [load_from_disk(x) for x in paths]
-        answers = concatenate_datasets(answers)
-
-        answers = answers.to_pandas()
-        map_ = []
-        for language in ["NL", "EN", "FR"]:
-            subset = answers[answers["language"] == language]
-            questions = subset["question"].unique()
-            # TOD0: remove incomplete sentences from answer?
-            for f in range(len(questions)):
-                map_.append([questions[f], f"Question {f+1}"])
-
-        question_map = {x[0]: x[1] for x in map_}
-        print(question_map)
-        answers["question_mapped"] = [question_map[x] for x in answers["question"]]
-
-        with open("evaluation/question_map.pkl", 'wb') as f:
-            pickle.dump(question_map, f)
-
-        Dataset.from_pandas(answers).save_to_disk("evaluation/all_answers")
-        return answers
-    else:
-        return load_from_disk("evaluation/all_answers").to_pandas()
-
-
 def evaluate():
     answers = get_answers_df()
     get_amonst_lang_eval(answers).to_csv("evaluation/among_lang_metrics.csv")
     get_baseline_lang_eval(answers).to_csv("evaluation/between_lang_baseline_metrics.csv")
-    get_reranked_doc_eval(answers).to_csv("evaluation/retrieved_docs_metrics.csv")
+    get_reranked_doc_eval(answers).to_csv("evaluation/reranked_docs_metrics.csv")
     compare_within(answers).to_csv("evaluation/within_baseline_non_baseline.csv")
     get_amonst_lang_setting_eval(answers).to_csv("evaluation/all_comparisons.csv")
-
-
-def answers_ud():
-    answers = get_answers_df()
-    turn_text_to_conll(answers=answers)
+    get_reranked_doc_question_eval_comp(answers).to_csv("evaluation/reranked_q_metrics.csv")
+    get_reranked_doc_answer_eval_comp(answers).to_csv("evaluation/reranked_answer_metrics.csv")
 
 
 if __name__ == "__main__":
     # freeze_support()  # for synchronity issues in using FAISS to make vec store
     # main()            # generate answers
+    # print("Getting BERTScore and rouge metrics")
     # evaluate()
-    answers_ud()
+    # print("Preparing for UD")
+    # prepare_ud()
+    turn_text_to_conll_BL()
+    # print("Preparing for frame analysis")
+    # prepare_frame()
+    # prepare_frame_source()

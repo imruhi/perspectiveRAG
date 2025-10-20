@@ -4,9 +4,6 @@ import pandas as pd
 from rouge_score import rouge_scorer
 import itertools
 from datasets import load_from_disk
-from nltk import word_tokenize, sent_tokenize, pos_tag
-from nltk.parse.util import taggedsents_to_conll
-import os
 
 scorer = rouge_scorer.RougeScorer(['rougeL'], use_stemmer=True)
 
@@ -118,11 +115,11 @@ def get_amonst_lang_setting_eval(answers, lang_pairs=None):
                 pair_answers = list(itertools.product(all_answers_1, baseline_answers_2))
                 pair_answers2 = list(itertools.product(all_answers_2, baseline_answers_1))
 
-                # product pairs with context
+                # product pairs one way (eng baseline -> fr rag)
                 for x in pair_answers:
                     cosine = cosine_sim(x[0], x[1])
                     all_measures.append([model_name, question, cosine, f"{pair[0]}-{pair[1]}"])
-                # product pairs with baselines
+                # product pairs other way (fr baseline -> eng rag)
                 for x in pair_answers2:
                     cosineb = cosine_sim(x[0], x[1])
                     all_measures.append([model_name, question, cosineb, f"{pair[0]}-{pair[1]}"])
@@ -207,9 +204,9 @@ def compare_within(answers, columns=None, languages=None):
     return all_measures_df
 
 
-def get_reranked_doc_eval(answers, dspath="all-texts-metadata_topics", languages=None):
+def get_reranked_doc_eval(answers, dspath="evaluation/all-texts-metadata_topics", languages=None):
     """
-    Evaluate the top k docs used in context for prompt
+    Evaluate the top k docs used in context for prompt, within language
     :param answers: answers df
     :param dspath: path to original texts
     :param languages: languages to evaluate
@@ -245,43 +242,80 @@ def get_reranked_doc_eval(answers, dspath="all-texts-metadata_topics", languages
     return all_measures_df
 
 
-def turn_text_to_conll(answers, ):
+def get_reranked_doc_question_eval_comp(answers, dspath="evaluation/all-texts-metadata_topics", languages=None):
     """
-    For UD profilling, turn each answer into one document of lines in conll-u format
+    Evaluate the similarity between questions and top k docs used in rag for prompt, within language
     :param answers: answers df
-    :return: none, file is saved
+    :param dspath: path to original texts
+    :param languages: languages to evaluate
+    :return: df with rouge and bertscore measures
     """
+    texts_ds = load_from_disk(dspath)
+    texts_dict = {id_: text for id_, text in zip(texts_ds["ID"], texts_ds["CleanedText"])}
 
-    if not os.path.exists("augmented_answers"):
-        os.makedirs("augmented_answers")
-    if not os.path.exists("baseline_answers"):
-        os.makedirs("baseline_answers")
+    if languages is None:
+        languages = list(answers["language"].unique())
 
-    answers["idx"] = [i for i in range(1, len(answers) + 1)]
+    models = list(answers["model"].unique())
+    questions = list(answers["question_mapped"].unique())
+    all_measures = []
+    for model_name in models:
 
-    for _, row in answers.iterrows():
-        idx = row["idx"]
-        i = 1
-        question = row["question_mapped"].replace(" ", "")
-        for a, b in zip(row["answers"], row["baseline_answer"]):
-            a = a.replace("*", "").replace("#", "")
-            b = b.replace("*", "").replace("#", "")
-            sentences = [pos_tag(word_tokenize(sent)) for sent in sent_tokenize(a)]
-            sentencesb = [pos_tag(word_tokenize(sent)) for sent in sent_tokenize(b)]
+        df1 = answers[answers["model"] == model_name].reset_index(drop=True)
 
-            tagged_sents = taggedsents_to_conll(sentences)
-            tagged_sentsb = taggedsents_to_conll(sentencesb)
+        for question in questions:
 
-            text = "".join([x for x in tagged_sents])
-            textb = "".join([x for x in tagged_sentsb])
+            df2 = df1[df1["question_mapped"] == question].reset_index(drop=True)
+            question_full = df2["question"][0]
 
-            f_name = f"augmented_answers/{idx}_{question}_{i}.txt"
-            with open(f_name, "w", encoding="utf-8") as f1:
-                f1.write(text)
+            for lang in languages:
+                all_reranked = list(df2[df2["language"] == lang].reset_index(drop=True)["reranked_doc_ids"].iloc[0])
+                all_reranked = [texts_dict[a] for a in all_reranked]
+                for a in all_reranked:
+                    cosine = cosine_sim(a, question_full)
+                    rouge = rougeL_fmeasure(a, question_full)
+                    all_measures.append([model_name, question, lang, cosine, rouge])
 
-            f_name = f"baseline_answers/{idx}_{question}_{i}.txt"
-            with open(f_name, "w", encoding="utf-8") as fb:
-                fb.write(textb)
+    all_measures_df = pd.DataFrame(all_measures,
+                                   columns=["Model", "Question", "Language", "Cosine", "Rouge"])
+    return all_measures_df
 
-            i += 1
 
+def get_reranked_doc_answer_eval_comp(answers, dspath="evaluation/all-texts-metadata_topics", languages=None):
+    """
+    Evaluate the similarity between rag answers and top k docs used in rag for prompt, within language
+    :param answers: answers df
+    :param dspath: path to original texts
+    :param languages: languages to evaluate
+    :return: df with rouge and bertscore measures
+    """
+    texts_ds = load_from_disk(dspath)
+    texts_dict = {id_: text for id_, text in zip(texts_ds["ID"], texts_ds["CleanedText"])}
+
+    if languages is None:
+        languages = list(answers["language"].unique())
+
+    models = list(answers["model"].unique())
+    questions = list(answers["question_mapped"].unique())
+    all_measures = []
+    for model_name in models:
+
+        df1 = answers[answers["model"] == model_name].reset_index(drop=True)
+
+        for question in questions:
+
+            df2 = df1[df1["question_mapped"] == question].reset_index(drop=True)
+
+            for lang in languages:
+                all_reranked = list(df2[df2["language"] == lang].reset_index(drop=True)["reranked_doc_ids"].iloc[0])
+                all_reranked = [texts_dict[a] for a in all_reranked]
+                all_answers = list(df2[df2["language"] == lang].reset_index(drop=True)["answers"].iloc[0])
+                pairs = list(itertools.product(all_answers, all_reranked))
+                for p in pairs:
+                    cosine = cosine_sim(p[0], p[1])
+                    rouge = rougeL_fmeasure(p[0], p[1])
+                    all_measures.append([model_name, question, lang, cosine, rouge])
+
+    all_measures_df = pd.DataFrame(all_measures,
+                                   columns=["Model", "Question", "Language", "Cosine", "Rouge"])
+    return all_measures_df

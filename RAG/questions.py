@@ -35,8 +35,8 @@ def load_questions(language):
             "Napoléon Bonaparte était-il un méchant ?",
             "Comment Napoléon Bonaparte a-t-il établi son empire en Europe ?",
             "Comment Napoléon Bonaparte est-il devenu empereur de France ?",
-            "La prétention de Napoléon Bonaparte au titre d’empereur avait-elle les faveurs de l'Europe ?",
-            "Quel impact le règne de Napoléon Bonaparte a-t-il eu sur l’Angleterre et les Pays-Bas ?",
+            "La prétention de Napoléon Bonaparte au titre d'empereur avait-elle les faveurs de l'Europe ?",
+            "Quel impact le règne de Napoléon Bonaparte a-t-il eu sur l'Angleterre et les Pays-Bas ?",
             "Quel a été l'impact de Napoléon Bonaparte sur l'Angleterre et les Pays-Bas ?",
-            "L’impact de Napoléon Bonaparte sur l’Angleterre et les Pays-Bas a-t-il été destructeur ?"
+            "L'impact de Napoléon Bonaparte sur l'Angleterre et les Pays-Bas a-t-il été destructeur ?"
         ]
