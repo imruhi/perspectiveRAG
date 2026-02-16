@@ -27,7 +27,7 @@ def align_text(embed_model_name="sentence-transformers/distiluse-base-multilingu
             embeddings = pickle.load(p)
     else:
         embeddings = embedding_model.encode(ds["CleanedText"], show_progress_bar=True)
-        # TODO: add metadata for embedding model name?
+
         with open("all_texts_embeddings.pkl", 'wb') as p:
             pickle.dump(embeddings, p)
 
@@ -43,7 +43,7 @@ def align_text(embed_model_name="sentence-transformers/distiluse-base-multilingu
             topics.extend(list(ts))
             i += len(subset["CleanedText"])
 
-        # Todo: temp fix for the topic situation in wiki?
+        # Temp fix for the topic situation in wiki?
         ds = ds.add_column("Topic", topics)
         df = ds.to_pandas()
         df["Topic"] = [np.int64(89) if x == "wiki" else y for x, y in zip(df["Source"], df["Topic"])]

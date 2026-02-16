@@ -33,7 +33,6 @@ def get_amonst_lang_eval(answers, lang_pairs=None):
     :return: measures df
     """
 
-    # Better way to do it since I'm less tired
     # one to many comparison
 
     all_measures = []
@@ -85,7 +84,6 @@ def get_amonst_lang_setting_eval(answers, lang_pairs=None):
     :return: measures df
     """
 
-    # Better way to do it since I'm less tired
     # one to many comparison
 
     all_measures = []
@@ -137,7 +135,6 @@ def get_baseline_lang_eval(answers, languages=None):
     :return: measures df
     """
 
-    # Better way to do it
     # one to many comparison
 
     all_measures = []
@@ -212,6 +209,7 @@ def get_reranked_doc_eval(answers, dspath="evaluation/all-texts-metadata_topics"
     :param languages: languages to evaluate
     :return: df with rouge and bertscore measures
     """
+
     texts_ds = load_from_disk(dspath)
     texts_dict = {id_: text for id_, text in zip(texts_ds["ID"], texts_ds["CleanedText"])}
 
@@ -250,6 +248,7 @@ def get_reranked_doc_question_eval_comp(answers, dspath="evaluation/all-texts-me
     :param languages: languages to evaluate
     :return: df with rouge and bertscore measures
     """
+
     texts_ds = load_from_disk(dspath)
     texts_dict = {id_: text for id_, text in zip(texts_ds["ID"], texts_ds["CleanedText"])}
 
@@ -289,6 +288,7 @@ def get_reranked_doc_answer_eval_comp(answers, dspath="evaluation/all-texts-meta
     :param languages: languages to evaluate
     :return: df with rouge and bertscore measures
     """
+
     texts_ds = load_from_disk(dspath)
     texts_dict = {id_: text for id_, text in zip(texts_ds["ID"], texts_ds["CleanedText"])}
 

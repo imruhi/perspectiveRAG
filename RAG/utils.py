@@ -225,7 +225,7 @@ def prepare_frame_source():
     docs = load_from_disk("evaluation/all-texts-metadata_topics").to_pandas()
     texts_dict = {id_: text for id_, text in zip(docs["ID"], docs["CleanedText"])}
 
-    languages = ['EN', 'FR', 'NL']  # answers.language.unique()
+    languages = ['EN', 'FR', 'NL']
     models = answers.model.unique()
     translation_results = pd.DataFrame()
     start = time.time()

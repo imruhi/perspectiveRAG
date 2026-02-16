@@ -90,6 +90,9 @@ DATASET = pd.read_csv("C:/Users/imruh/Documents/perspectiveRAG/data/remove_headi
 
 
 def train_classifier(k=3):
+    """
+    Classifier to extract headings (used in splitting the text into legislation)
+    """
     X = pd.DataFrame(DATASET['points'].to_list())
     y = DATASET['boolRemove'].to_numpy()
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
@@ -171,7 +174,7 @@ class AmericanStories:
 
 class Wikipedia:
     """
-    An instance of web scraped wiki data
+    An instance of web scraped wiki data (NOT USED IN LREC)
     :param: language, specified language
     """
 
@@ -186,7 +189,7 @@ class Wikipedia:
         self.path = self.path + "-cleaned"
 
 
-# TODO: remove legislations which are not in range of correct years
+
 class Plakaatboeken:
     """
     An instance of the Nederlands Indische Plakaatboeken from KB/Annemieke
