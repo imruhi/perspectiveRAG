@@ -7,7 +7,7 @@ This branch contains the RAG setup:
 * `questions.py` **contains the questions used in QA divided per language** 
 
 
-* `evaluation` contains the code needed to evaluate model answers, relating to frames, UD profiling, topic modeling and similarity metrics
+* `evaluation` contains the code needed and results (in `.csv`, `.parquet`, `.pkl` and `.out` formats) to evaluate model answers, relating to frames, UD profiling, topic modeling and similarity metrics
 
 
 * `advanced_rag.py` contains the code to run retrieval and QA 
