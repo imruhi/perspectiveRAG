@@ -1,1 +1,0 @@
-[![Watch the presentation video](video/thumbnail.jpg)](video/video.mp4)
