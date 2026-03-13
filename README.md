@@ -13,4 +13,4 @@ Code for RAG and retrieval is in `RAG`
 Code for evaluation and visualizing results is in `RAG\evaluation` 
 
 
-Related paper presented as a poster at LREC 2026.
+Related paper presented as a poster at LREC 2026. Video presentation of poster can be found at [https://imruhi.github.io/posts/2026/03/13/](https://imruhi.github.io/posts/2026/03/13/)
